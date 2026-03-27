@@ -10,7 +10,10 @@ import { TrendingFabrics } from '@features/home/components/TrendingFabrics';
 import { TrustStats } from '@features/home/components/TrustStats';
 import { useTheme } from '@shared/theme';
 import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useAppDispatch, useAppSelector } from '@store/index';
+import { openAuthSheet } from '@store/authSlice';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function Divider({ size = '2xl' }: { size?: '2xl' | 'xl' | 'lg' }) {
@@ -20,9 +23,27 @@ function Divider({ size = '2xl' }: { size?: '2xl' | 'xl' | 'lg' }) {
 }
 
 export default function HomeScreen() {
-  const { colors, sp, typo, elev } = useTheme();
+  const { colors, sp, r, typo, elev } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(s => s.auth.user);
+
+  // Redirect to dashboard when user logs in from this screen
+  const prevUserRef = useRef(user);
+  useEffect(() => {
+    if (!prevUserRef.current && user) {
+      router.push('/(dashboard)' as any);
+    }
+    prevUserRef.current = user;
+  }, [user]);
+
+  const initials = user?.name
+    .split(' ')
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase() ?? '';
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
@@ -72,8 +93,25 @@ export default function HomeScreen() {
           <Pressable onPress={() => router.push('/cart' as any)} hitSlop={8}>
             <IconSymbol name="bag" size={22} color={colors.textHigh} />
           </Pressable>
-          <Pressable onPress={() => router.push('/account' as any)} hitSlop={8}>
-            <IconSymbol name="person.fill" size={22} color={colors.textHigh} />
+          <Pressable
+            onPress={() => user ? router.push('/(dashboard)' as any) : dispatch(openAuthSheet('login'))}
+            hitSlop={8}
+          >
+            {user ? (
+              <View style={[
+                styles.avatar,
+                { backgroundColor: colors.accentSubtle, borderRadius: r.pill },
+              ]}>
+                <Text style={[
+                  typo.scale.caption,
+                  { fontFamily: typo.fonts.sansBold, color: colors.accent, fontSize: 11 },
+                ]}>
+                  {initials}
+                </Text>
+              </View>
+            ) : (
+              <IconSymbol name="person" size={22} color={colors.textHigh} />
+            )}
           </Pressable>
           <Pressable onPress={() => router.push('/settings' as any)} hitSlop={8}>
             <IconSymbol name="gearshape.fill" size={22} color={colors.textHigh} />
@@ -173,6 +211,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {},
 });

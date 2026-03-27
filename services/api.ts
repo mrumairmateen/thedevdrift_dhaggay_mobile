@@ -20,11 +20,13 @@ export const api = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
     baseUrl: BASE_URL,
-    prepareHeaders: headers => {
+    prepareHeaders: (headers, { getState }) => {
       headers.set('X-Client', 'mobile');
+      const token = (getState() as { auth?: { accessToken?: string } }).auth?.accessToken;
+      if (token) headers.set('Authorization', `Bearer ${token}`);
       return headers;
     },
   }),
-  tagTypes: ['Product', 'Shop', 'Cart', 'Order', 'User', 'Tailor', 'Design'],
+  tagTypes: ['Product', 'Shop', 'Cart', 'Order', 'User', 'Tailor', 'Design', 'Auth', 'Loyalty', 'Wishlist'],
   endpoints: () => ({}),
 });

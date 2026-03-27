@@ -16,12 +16,15 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Provider } from 'react-redux';
 import 'react-native-reanimated';
 
 import { ThemeProvider, useTheme } from '@shared/theme';
+import { AuthSheet } from '@shared/components/AuthSheet';
 import { store } from '@store/index';
+import { setCredentials } from '@store/authSlice';
+import { loadAuthTokens } from '@store/secureAuth';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,6 +37,7 @@ function RootNavigator() {
 
   return (
     <>
+      <AuthSheet />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.navSolid },
@@ -51,6 +55,7 @@ function RootNavigator() {
         <Stack.Screen name="cart" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="(dashboard)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true, title: '' }} />
       </Stack>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
@@ -62,14 +67,21 @@ export default function RootLayout() {
   const [cormorantLoaded] = useCormorant({ CormorantGaramond_300Light });
   const [playfairLoaded] = usePlayfair({ PlayfairDisplay_400Regular, PlayfairDisplay_700Bold });
   const [dmSansLoaded] = useDMSans({ DMSans_400Regular, DMSans_500Medium, DMSans_700Bold });
+  const [authHydrated, setAuthHydrated] = useState(false);
 
   const fontsLoaded = cormorantLoaded && playfairLoaded && dmSansLoaded;
 
   useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync();
-  }, [fontsLoaded]);
+    loadAuthTokens().then((saved) => {
+      if (saved) store.dispatch(setCredentials(saved));
+    }).finally(() => setAuthHydrated(true));
+  }, []);
 
-  if (!fontsLoaded) return null;
+  useEffect(() => {
+    if (fontsLoaded && authHydrated) SplashScreen.hideAsync();
+  }, [fontsLoaded, authHydrated]);
+
+  if (!fontsLoaded || !authHydrated) return null;
 
   return (
     <Provider store={store}>

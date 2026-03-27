@@ -67,6 +67,17 @@ const MAPPING = {
   'moon.fill': 'nightlight-round',
   'snowflake': 'ac-unit',
   'square.grid.2x2.fill': 'grid-view',
+  // Dashboard tabs
+  'chart.bar.fill': 'bar-chart',
+  'bookmark.fill': 'bookmark',
+  'gift.fill': 'card-giftcard',
+  'person.crop.circle': 'account-circle',
+  'person': 'person-outline',
+  // Dashboard components
+  'ruler.fill': 'straighten',
+  'doc.on.doc.fill': 'content-copy',
+  'pencil': 'edit',
+  'chevron.up': 'expand-less',
 } as IconMapping;
 
 /**

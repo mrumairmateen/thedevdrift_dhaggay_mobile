@@ -2,6 +2,7 @@ import { configureStore, createSlice } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
 import type { TypedUseSelectorHook } from 'react-redux';
 import { api } from '@services/api';
+import authReducer from './authSlice';
 
 // Placeholder until real slices are added
 const appSlice = createSlice({
@@ -13,9 +14,9 @@ const appSlice = createSlice({
 export const store = configureStore({
   reducer: {
     app: appSlice.reducer,
+    auth: authReducer,
     [api.reducerPath]: api.reducer,
     // Feature slices added here as we build them:
-    // auth: authReducer,
     // cart: cartReducer,
   },
   middleware: getDefaultMiddleware =>
