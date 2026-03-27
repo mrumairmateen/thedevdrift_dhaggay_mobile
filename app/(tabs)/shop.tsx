@@ -4,14 +4,14 @@ import { ProductCard } from '@features/shop/components/ProductCard';
 import type { FabricCategory, SortOption } from '@features/shop/shop.types';
 import { useTheme } from '@shared/theme';
 import { useGetProductsQuery } from '@services/shopApi';
-import { useCallback, useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
   Pressable,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -57,12 +57,22 @@ function SkeletonCard({ width }: { width: number }) {
 export default function ShopScreen() {
   const { colors, sp, r, typo } = useTheme();
   const insets = useSafeAreaInsets();
+  const { category: categoryParam } = useLocalSearchParams<{ category?: string }>();
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [category, setCategory] = useState<FabricCategory | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [category, setCategory] = useState<FabricCategory | null>((categoryParam as FabricCategory) ?? null);
   const [sort, setSort] = useState<SortOption>('rating');
   const [page, setPage] = useState(1);
+
+  // Sync when navigating from CategoryRow with a ?category= param
+  useEffect(() => {
+    if (categoryParam) {
+      setCategory(categoryParam as FabricCategory);
+      setPage(1);
+    }
+  }, [categoryParam]);
 
   const query = useMemo(
     () => ({
@@ -75,7 +85,7 @@ export default function ShopScreen() {
     [debouncedSearch, category, sort, page],
   );
 
-  const { data, isLoading, isFetching, refetch } = useGetProductsQuery(query);
+  const { data, isLoading, isFetching, isError, refetch } = useGetProductsQuery(query);
 
   const products = data?.products ?? [];
   const totalPages = data?.pages ?? 1;
@@ -83,8 +93,11 @@ export default function ShopScreen() {
   // Debounce search 350ms
   const handleSearchChange = useCallback((text: string) => {
     setSearch(text);
-    const t = setTimeout(() => setDebouncedSearch(text), 350);
-    return () => clearTimeout(t);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(text);
+      setPage(1);
+    }, 350);
   }, []);
 
   const handleCategoryChange = useCallback((cat: FabricCategory | null) => {
@@ -221,8 +234,26 @@ export default function ShopScreen() {
         </View>
       )}
 
+      {/* Error state */}
+      {isError && !isLoading && (
+        <View style={styles.empty}>
+          <IconSymbol name="exclamationmark.triangle" size={36} color={colors.textLow} />
+          <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
+            Couldn't load products.{'\n'}Check your connection and try again.
+          </Text>
+          <Pressable
+            onPress={() => refetch()}
+            style={[{ marginTop: sp.lg, backgroundColor: colors.accent, borderRadius: r.pill, paddingHorizontal: sp.xl, paddingVertical: sp.sm }]}
+          >
+            <Text style={[typo.scale.label, { color: colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>
+              RETRY
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Grid */}
-      {isLoading ? (
+      {!isError && (isLoading ? (
         renderSkeleton()
       ) : (
         <FlatList
@@ -294,7 +325,7 @@ export default function ShopScreen() {
             ) : null
           }
         />
-      )}
+      ))}
     </View>
   );
 }

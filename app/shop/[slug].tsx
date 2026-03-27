@@ -17,7 +17,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { DUMMY_PRODUCTS } from '@features/shop/shop.fixtures';
 import { CARE_LABELS, FabricCategory, ShopProduct } from '@features/shop/shop.types';
 import { useGetProductBySlugQuery, useGetProductsQuery } from '@services/shopApi';
 import { useTheme } from '@shared/theme';
@@ -285,9 +284,7 @@ function RelatedProductsSection({
 
 export default function ProductDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
-  const { data: apiProduct, isLoading } = useGetProductBySlugQuery(slug ?? '');
-  // Fall back to local fixtures when the backend is unreachable (dev only)
-  const product = apiProduct ?? (isLoading ? undefined : DUMMY_PRODUCTS.find(p => p.slug === slug));
+  const { data: product, isLoading, isError, refetch } = useGetProductBySlugQuery(slug ?? '');
   const { colors, sp, r, typo } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -374,6 +371,30 @@ export default function ProductDetailScreen() {
     return (
       <View style={[s.centered, { backgroundColor: colors.bg }]}>
         <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View style={[s.centered, { backgroundColor: colors.bg, paddingHorizontal: sp['2xl'] }]}>
+        <IconSymbol name="exclamationmark.triangle" size={40} color={colors.textLow} />
+        <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
+          Couldn't load this product.{'\n'}Check your connection and try again.
+        </Text>
+        <Pressable
+          onPress={() => refetch()}
+          style={[{ marginTop: sp.lg, backgroundColor: colors.accent, borderRadius: r.pill, paddingHorizontal: sp.xl, paddingVertical: sp.sm }]}
+        >
+          <Text style={[typo.scale.label, { color: colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>
+            RETRY
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => router.back()} style={{ marginTop: sp.md }}>
+          <Text style={[typo.scale.bodySmall, { color: colors.textLow, fontFamily: typo.fonts.sans }]}>
+            ← Go back
+          </Text>
+        </Pressable>
       </View>
     );
   }

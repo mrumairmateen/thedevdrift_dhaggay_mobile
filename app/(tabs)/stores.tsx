@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -145,6 +145,7 @@ export default function StoresScreen() {
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const [city, setCity] = useState('All Cities');
   const [sort, setSort] = useState<StoreSort>('rating');
   const [page, setPage] = useState(1);
@@ -160,15 +161,15 @@ export default function StoresScreen() {
     [debouncedSearch, city, sort, page],
   );
 
-  const { data, isLoading, isFetching, refetch } = useGetShopsQuery(query);
+  const { data, isLoading, isFetching, isError, refetch } = useGetShopsQuery(query);
 
   const shops = data?.shops ?? [];
   const totalPages = data?.pages ?? 1;
 
   const handleSearchChange = useCallback((text: string) => {
     setSearch(text);
-    const t = setTimeout(() => { setDebouncedSearch(text); setPage(1); }, 350);
-    return () => clearTimeout(t);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { setDebouncedSearch(text); setPage(1); }, 350);
   }, []);
 
   const renderItem = useCallback(
@@ -284,8 +285,26 @@ export default function StoresScreen() {
         </View>
       </View>
 
+      {/* Error state */}
+      {isError && !isLoading && (
+        <View style={styles.empty}>
+          <IconSymbol name="exclamationmark.triangle" size={36} color={colors.textLow} />
+          <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
+            Couldn't load stores.{'\n'}Check your connection and try again.
+          </Text>
+          <Pressable
+            onPress={() => refetch()}
+            style={[{ marginTop: sp.lg, backgroundColor: colors.accent, borderRadius: r.pill, paddingHorizontal: sp.xl, paddingVertical: sp.sm }]}
+          >
+            <Text style={[typo.scale.label, { color: colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>
+              RETRY
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* List */}
-      {isLoading ? (
+      {!isError && (isLoading ? (
         <View style={[styles.loading]}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
@@ -333,7 +352,7 @@ export default function StoresScreen() {
             ) : null
           }
         />
-      )}
+      ))}
     </View>
   );
 }

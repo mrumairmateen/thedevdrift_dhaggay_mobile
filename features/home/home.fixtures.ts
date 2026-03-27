@@ -1,7 +1,5 @@
 import type { HomeCategoryItem } from './home.types';
 import { DUMMY_PRODUCTS } from '@features/shop/shop.fixtures';
-import { DESIGN_FIXTURES } from '@features/designs/designs.fixtures';
-import { TAILOR_FIXTURES } from '@features/tailors/tailors.fixtures';
 
 export const DUMMY_FABRICS = DUMMY_PRODUCTS;
 
@@ -15,7 +13,3 @@ export const CATEGORIES: HomeCategoryItem[] = [
   { slug: 'karandi', label: 'Karandi', color: '#2563EB', bgColor: '#DBEAFE', iconName: 'snowflake' },
   { slug: 'khaddar', label: 'Khaddar', color: '#92400E', bgColor: '#FEF3C7', iconName: 'square.grid.2x2.fill' },
 ];
-
-// Single source of truth — slice from feature fixtures so slugs are consistent
-export const DESIGNS = DESIGN_FIXTURES.slice(0, 6);
-export const TAILORS = TAILOR_FIXTURES.slice(0, 3);

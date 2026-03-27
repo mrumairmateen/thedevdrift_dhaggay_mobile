@@ -1,6 +1,3 @@
-// Mirrors the frontend DesignItem interface exactly.
-// imageColor is mobile-only: a color placeholder until real images are served.
-
 export interface Design {
   _id: string;
   slug: string;
@@ -14,5 +11,22 @@ export interface Design {
   tags?: string[];
   requiredMeasurements?: string[];
   measurementGuide?: string;
-  imageColor: string;
+}
+
+export type DesignSort = 'trending' | 'newest' | 'most_used';
+
+export interface DesignQuery {
+  search?: string;
+  occasion?: string;
+  gender?: string;
+  sort?: DesignSort;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedDesigns {
+  designs: Design[];
+  total: number;
+  page: number;
+  pages: number;
 }

@@ -95,14 +95,14 @@ export interface Shop {
   banner?: { url: string; publicId: string };
   rating: number;
   reviewCount: number;
-  address?: { city: string; area?: string };
+  address?: { line1?: string; city?: string; area?: string; fullAddress?: string; phone?: string };
   isVerified: boolean;
   productCount: number;
   totalSales: number;
   policies?: {
     returns?: string;
-    shipping?: string;
-    minOrderQty?: number;
+    noReturnPolicy?: boolean;
+    returnWindowDays?: number;
   };
 }
 

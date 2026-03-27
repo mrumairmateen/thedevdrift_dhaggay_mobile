@@ -1,9 +1,9 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { TAILOR_FIXTURES } from '@features/tailors/tailors.fixtures';
-import { useTheme } from '@shared/theme';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Pressable,
   ScrollView,
@@ -13,10 +13,22 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useGetTailorBySlugQuery } from '@services/tailorsApi';
+import { useTheme } from '@shared/theme';
+
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PORTFOLIO_GAP = 8;
 const H_PAD = 16;
 const PORTFOLIO_COL_W = (SCREEN_WIDTH - H_PAD * 2 - PORTFOLIO_GAP) / 2;
+
+const AVATAR_COLORS = ['#1A6B3C', '#6D28D9', '#B45309', '#0369A1', '#9D174D', '#BE123C'];
+function getInitials(name: string) {
+  return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?';
+}
+function getAvatarColor(id: string) {
+  const sum = id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+}
 
 type ProfileTab = 'portfolio' | 'pricing' | 'reviews';
 
@@ -27,25 +39,57 @@ export default function TailorProfileScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>('portfolio');
 
-  const tailor = TAILOR_FIXTURES.find(t => t.slug === slug);
+  const { data: tailor, isLoading, isError, refetch } = useGetTailorBySlugQuery(slug ?? '');
 
-  if (!tailor) {
+  const PROFILE_TABS: Array<{ key: ProfileTab; label: string }> = [
+    { key: 'portfolio', label: 'Portfolio' },
+    { key: 'pricing', label: 'Pricing' },
+    { key: 'reviews', label: 'Reviews' },
+  ];
+
+  const headerBar = (
+    <View style={[styles.header, elev.high, {
+      backgroundColor: colors.navSolid,
+      paddingTop: insets.top + sp.sm,
+      paddingHorizontal: sp.base,
+      paddingBottom: sp.md,
+      borderBottomColor: colors.border,
+    }]}>
+      <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+        <IconSymbol name="chevron.left" size={20} color={colors.textHigh} />
+        <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansMed, color: colors.textHigh }]}>Tailors</Text>
+      </Pressable>
+    </View>
+  );
+
+  if (isLoading) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-        <View style={[styles.header, {
-          backgroundColor: colors.navSolid,
-          paddingTop: insets.top + sp.sm,
-          paddingHorizontal: sp.base,
-          paddingBottom: sp.md,
-          borderBottomColor: colors.border,
-        }]}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <IconSymbol name="chevron.left" size={20} color={colors.textHigh} />
-            <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansMed, color: colors.textHigh }]}>Tailors</Text>
-          </Pressable>
+        {headerBar}
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
-        <View style={styles.notFound}>
-          <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans }]}>Tailor not found.</Text>
+      </View>
+    );
+  }
+
+  if (isError || !tailor) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.bg }]}>
+        {headerBar}
+        <View style={styles.centered}>
+          <IconSymbol name="exclamationmark.triangle" size={40} color={colors.textLow} />
+          <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
+            {isError ? 'Could not load tailor.\nCheck your connection.' : 'Tailor not found.'}
+          </Text>
+          {isError && (
+            <Pressable
+              onPress={() => refetch()}
+              style={[{ marginTop: sp.lg, backgroundColor: colors.accent, borderRadius: r.pill, paddingHorizontal: sp.xl, paddingVertical: sp.sm }]}
+            >
+              <Text style={[typo.scale.label, { color: colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>RETRY</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     );
@@ -59,29 +103,13 @@ export default function TailorProfileScreen() {
   const tierText = tailor.tier === 'standard' ? colors.textMid : colors.textOnAccent;
   const city = tailor.serviceAreas[0]?.city ?? '';
   const area = tailor.serviceAreas[0]?.area;
-  const name = typeof tailor.userId === 'object' && tailor.userId !== null ? tailor.userId.name : tailor.initials;
-
-  const PROFILE_TABS: Array<{ key: ProfileTab; label: string }> = [
-    { key: 'portfolio', label: 'Portfolio' },
-    { key: 'pricing', label: 'Pricing' },
-    { key: 'reviews', label: 'Reviews' },
-  ];
+  const name = typeof tailor.userId === 'object' && tailor.userId !== null ? tailor.userId.name : 'Unknown';
+  const initials = getInitials(name);
+  const avatarColor = getAvatarColor(tailor._id);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-      {/* Header */}
-      <View style={[styles.header, elev.high, {
-        backgroundColor: colors.navSolid,
-        paddingTop: insets.top + sp.sm,
-        paddingHorizontal: sp.base,
-        paddingBottom: sp.md,
-        borderBottomColor: colors.border,
-      }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <IconSymbol name="chevron.left" size={20} color={colors.textHigh} />
-          <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansMed, color: colors.textHigh }]}>Tailors</Text>
-        </Pressable>
-      </View>
+      {headerBar}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + sp['4xl'] }}>
         {/* Profile header card */}
@@ -95,13 +123,13 @@ export default function TailorProfileScreen() {
           {/* Avatar + name + tier */}
           <View style={[styles.avatarRow, { marginBottom: sp.md }]}>
             <View style={[styles.bigAvatar, {
-              backgroundColor: tailor.avatarColor,
+              backgroundColor: avatarColor,
               borderRadius: r.pill,
               width: 72,
               height: 72,
             }]}>
-              <Text style={[typo.scale.title3, { fontFamily: typo.fonts.sansBold, color: colors.textOnAccent }]}>
-                {tailor.initials}
+              <Text style={[typo.scale.title3, { fontFamily: typo.fonts.sansBold, color: '#fff' }]}>
+                {initials}
               </Text>
             </View>
             <View style={styles.profileNameBlock}>
@@ -109,12 +137,7 @@ export default function TailorProfileScreen() {
                 {name}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <View style={[{
-                  backgroundColor: tierBg,
-                  borderRadius: r.sharp,
-                  paddingHorizontal: sp.sm,
-                  paddingVertical: 3,
-                }]}>
+                <View style={[{ backgroundColor: tierBg, borderRadius: r.sharp, paddingHorizontal: sp.sm, paddingVertical: 3 }]}>
                   <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: tierText, fontSize: 10 }]}>
                     {tailor.tier.toUpperCase()}
                   </Text>
@@ -141,12 +164,7 @@ export default function TailorProfileScreen() {
           </View>
 
           {/* Stats row */}
-          <View style={[styles.statsRow, {
-            backgroundColor: colors.panel,
-            borderRadius: r.md,
-            padding: sp.md,
-            marginBottom: sp.md,
-          }]}>
+          <View style={[styles.statsRow, { backgroundColor: colors.panel, borderRadius: r.md, padding: sp.md, marginBottom: sp.md }]}>
             <View style={styles.statItem}>
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map(i => (
@@ -154,7 +172,7 @@ export default function TailorProfileScreen() {
                 ))}
               </View>
               <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid }]}>
-                {tailor.rating} ({tailor.reviewCount})
+                {tailor.rating.toFixed(1)} ({tailor.reviewCount})
               </Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -173,14 +191,21 @@ export default function TailorProfileScreen() {
             </View>
           </View>
 
+          {/* Specialisations */}
+          {tailor.specialisations.length > 0 && (
+            <View style={[styles.specRow, { marginBottom: sp.md }]}>
+              {tailor.specialisations.map(s => (
+                <View key={s} style={[{ backgroundColor: colors.chipBg, borderRadius: r.sharp, paddingHorizontal: sp.sm, paddingVertical: 3 }]}>
+                  <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansMed, color: colors.textMid, fontSize: 10 }]}>{s}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {/* Book Now CTA */}
           <Pressable
             onPress={() => router.push(`/orders/new?tailorId=${tailor._id}` as any)}
-            style={[styles.bookBtn, {
-              backgroundColor: colors.accent,
-              borderRadius: r.pill,
-              paddingVertical: sp.md,
-            }]}
+            style={[styles.bookBtn, { backgroundColor: colors.accent, borderRadius: r.pill, paddingVertical: sp.md }]}
           >
             <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansBold, color: colors.textOnAccent, textAlign: 'center' }]}>
               Book Now
@@ -189,28 +214,16 @@ export default function TailorProfileScreen() {
         </View>
 
         {/* Tab bar */}
-        <View style={[styles.tabBar, {
-          backgroundColor: colors.navSolid,
-          borderBottomColor: colors.border,
-          borderBottomWidth: 1,
-        }]}>
+        <View style={[styles.tabBar, { backgroundColor: colors.navSolid, borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
           {PROFILE_TABS.map(tab => {
             const active = tab.key === activeTab;
             return (
               <Pressable
                 key={tab.key}
                 onPress={() => setActiveTab(tab.key)}
-                style={[styles.tabItem, {
-                  borderBottomWidth: active ? 2 : 0,
-                  borderBottomColor: colors.accent,
-                  paddingVertical: sp.md,
-                }]}
+                style={[styles.tabItem, { borderBottomWidth: active ? 2 : 0, borderBottomColor: colors.accent, paddingVertical: sp.md }]}
               >
-                <Text style={[typo.scale.label, {
-                  fontFamily: typo.fonts.sansBold,
-                  color: active ? colors.accent : colors.textMid,
-                  letterSpacing: 1,
-                }]}>
+                <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: active ? colors.accent : colors.textMid, letterSpacing: 1 }]}>
                   {tab.label.toUpperCase()}
                 </Text>
               </Pressable>
@@ -218,22 +231,20 @@ export default function TailorProfileScreen() {
           })}
         </View>
 
-        {/* Tab content */}
+        {/* Portfolio */}
         {activeTab === 'portfolio' && (
           <View style={[styles.portfolioGrid, { padding: H_PAD, gap: PORTFOLIO_GAP }]}>
-            {(tailor.portfolio ?? []).length === 0 && (
-              <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, textAlign: 'center', paddingVertical: sp['3xl'] }]}>
+            {(tailor.portfolio ?? []).length === 0 ? (
+              <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, textAlign: 'center', paddingVertical: sp['3xl'], width: '100%' }]}>
                 No portfolio items yet.
               </Text>
-            )}
-            {(tailor.portfolio ?? []).map((item, idx) => (
-              <View key={idx} style={[styles.portfolioItem, {
-                width: PORTFOLIO_COL_W,
-                borderRadius: r.md,
-                overflow: 'hidden',
-                backgroundColor: item.imageColor,
-              }]}>
-                <View style={{ height: PORTFOLIO_COL_W, backgroundColor: item.imageColor }} />
+            ) : (tailor.portfolio ?? []).map((item, idx) => (
+              <View key={idx} style={[styles.portfolioItem, { width: PORTFOLIO_COL_W, borderRadius: r.md, overflow: 'hidden', backgroundColor: colors.panel }]}>
+                {item.imageUrl ? (
+                  <Image source={{ uri: item.imageUrl }} style={{ width: PORTFOLIO_COL_W, height: PORTFOLIO_COL_W }} contentFit="cover" />
+                ) : (
+                  <View style={{ height: PORTFOLIO_COL_W, backgroundColor: colors.panel }} />
+                )}
                 {item.caption && (
                   <View style={{ padding: sp.sm, backgroundColor: colors.elevated }}>
                     <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid }]} numberOfLines={1}>
@@ -246,16 +257,11 @@ export default function TailorProfileScreen() {
           </View>
         )}
 
+        {/* Pricing */}
         {activeTab === 'pricing' && (
           <View style={{ padding: sp.base }}>
             {tailor.categoryPricing && tailor.categoryPricing.length > 0 ? (
-              <View style={[{
-                backgroundColor: colors.elevated,
-                borderRadius: r.md,
-                borderWidth: 1,
-                borderColor: colors.border,
-                overflow: 'hidden',
-              }]}>
+              <View style={[{ backgroundColor: colors.elevated, borderRadius: r.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }]}>
                 {tailor.categoryPricing.map((item, idx) => (
                   <View key={item.garmentCategoryId} style={[styles.priceRow, {
                     borderBottomWidth: idx < tailor.categoryPricing!.length - 1 ? 1 : 0,
@@ -281,8 +287,9 @@ export default function TailorProfileScreen() {
           </View>
         )}
 
+        {/* Reviews */}
         {activeTab === 'reviews' && (
-          <View style={[styles.reviewsEmpty, { paddingVertical: sp['3xl'] }]}>
+          <View style={[styles.centered, { paddingVertical: sp['3xl'] }]}>
             <IconSymbol name="star" size={40} color={colors.textLow} />
             <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
               No reviews yet.{'\n'}Be the first to book and review!
@@ -298,6 +305,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { borderBottomWidth: 1 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   profileCard: {},
   avatarRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
   bigAvatar: { alignItems: 'center', justifyContent: 'center' },
@@ -309,12 +317,11 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center', gap: 4 },
   starsRow: { flexDirection: 'row' },
   statDivider: { width: 1, height: 36 },
+  specRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   bookBtn: {},
   tabBar: { flexDirection: 'row' },
   tabItem: { flex: 1, alignItems: 'center' },
   portfolioGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   portfolioItem: { marginBottom: PORTFOLIO_GAP },
   priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  reviewsEmpty: { alignItems: 'center' },
-  notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

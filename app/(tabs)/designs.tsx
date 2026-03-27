@@ -1,13 +1,12 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { DESIGN_FIXTURES } from '@features/designs/designs.fixtures';
-import type { Design } from '@features/designs/designs.types';
-import { useTheme } from '@shared/theme';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import type { Design, DesignSort } from '@features/designs/designs.types';
+import { useGetDesignsQuery } from '@services/designsApi';
+import { useTheme } from '@shared/theme';
+
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_GAP = 12;
 const H_PAD = 16;
@@ -23,7 +27,7 @@ const CARD_WIDTH = (SCREEN_WIDTH - H_PAD * 2 - CARD_GAP) / 2;
 const IMAGE_HEIGHT = Math.round(CARD_WIDTH * 1.35);
 
 const OCCASIONS = ['All', 'Casual', 'Formal', 'Bridal', 'Eid', 'Party'];
-const SORT_OPTIONS: Array<{ label: string; value: 'trending' | 'newest' | 'most_used' }> = [
+const SORT_OPTIONS: Array<{ label: string; value: DesignSort }> = [
   { label: 'Trending', value: 'trending' },
   { label: 'Newest', value: 'newest' },
   { label: 'Most Used', value: 'most_used' },
@@ -45,6 +49,7 @@ function SkeletonDesignCard({ width }: { width: number }) {
 function DesignCard({ design }: { design: Design }) {
   const { colors, sp, r, typo, elev } = useTheme();
   const router = useRouter();
+  const imageUrl = design.images[0]?.url;
 
   return (
     <Pressable
@@ -58,10 +63,17 @@ function DesignCard({ design }: { design: Design }) {
     >
       <View style={[styles.imageArea, {
         height: IMAGE_HEIGHT,
-        backgroundColor: design.imageColor,
+        backgroundColor: colors.panel,
         borderTopLeftRadius: r.md,
         borderTopRightRadius: r.md,
       }]}>
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={[StyleSheet.absoluteFill, { borderTopLeftRadius: r.md, borderTopRightRadius: r.md }]}
+            contentFit="cover"
+          />
+        ) : null}
         {design.isTrending && (
           <View style={[styles.trendingBadge, {
             backgroundColor: colors.warning,
@@ -95,22 +107,32 @@ function DesignCard({ design }: { design: Design }) {
 export default function DesignsScreen() {
   const { colors, sp, r, typo, elev } = useTheme();
   const insets = useSafeAreaInsets();
-  const [search, setSearch] = useState('');
-  const [occasion, setOccasion] = useState('All');
-  const [sort, setSort] = useState<'trending' | 'newest' | 'most_used'>('trending');
 
-  const filtered = useMemo(() => {
-    let data = DESIGN_FIXTURES;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      data = data.filter(d => d.title.toLowerCase().includes(q) || d.garmentCategorySlug.includes(q));
-    }
-    if (occasion !== 'All') {
-      data = data.filter(d => d.occasion.includes(occasion));
-    }
-    if (sort === 'trending') data = [...data].sort((a, b) => (b.isTrending ? 1 : 0) - (a.isTrending ? 1 : 0));
-    return data;
-  }, [search, occasion, sort]);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [occasion, setOccasion] = useState('All');
+  const [sort, setSort] = useState<DesignSort>('trending');
+  const [page, setPage] = useState(1);
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearch(text);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { setDebouncedSearch(text); setPage(1); }, 350);
+  }, []);
+
+  const query = useMemo(() => ({
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    ...(occasion !== 'All' ? { occasion } : {}),
+    sort,
+    page,
+    limit: 20,
+  }), [debouncedSearch, occasion, sort, page]);
+
+  const { data, isLoading, isFetching, isError, refetch } = useGetDesignsQuery(query);
+
+  const designs = data?.designs ?? [];
+  const totalPages = data?.pages ?? 1;
 
   const renderItem = useCallback(
     ({ item, index }: { item: Design; index: number }) => (
@@ -145,14 +167,14 @@ export default function DesignsScreen() {
           <IconSymbol name="magnifyingglass" size={16} color={colors.textLow} />
           <TextInput
             value={search}
-            onChangeText={setSearch}
+            onChangeText={handleSearchChange}
             placeholder="Search designs…"
             placeholderTextColor={colors.textLow}
             style={[styles.searchInput, typo.scale.body, { fontFamily: typo.fonts.sans, color: colors.textHigh }]}
             returnKeyType="search"
           />
           {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')}>
+            <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }}>
               <IconSymbol name="xmark" size={14} color={colors.textLow} />
             </Pressable>
           )}
@@ -167,7 +189,7 @@ export default function DesignsScreen() {
               return (
                 <Pressable
                   key={opt.value}
-                  onPress={() => setSort(opt.value)}
+                  onPress={() => { setSort(opt.value); setPage(1); }}
                   style={[styles.sortPill, {
                     backgroundColor: active ? colors.accentSubtle : 'transparent',
                     borderRadius: r.pill,
@@ -176,16 +198,14 @@ export default function DesignsScreen() {
                     paddingVertical: 4,
                   }]}
                 >
-                  <Text style={[typo.scale.label, {
-                    fontFamily: typo.fonts.sansMed,
-                    color: active ? colors.accent : colors.textMid,
-                  }]}>
+                  <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansMed, color: active ? colors.accent : colors.textMid }]}>
                     {opt.label}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+          {isFetching && !isLoading && <ActivityIndicator size="small" color={colors.accent} />}
         </View>
       </View>
 
@@ -197,7 +217,7 @@ export default function DesignsScreen() {
             return (
               <Pressable
                 key={occ}
-                onPress={() => setOccasion(occ)}
+                onPress={() => { setOccasion(occ); setPage(1); }}
                 style={[styles.occasionPill, {
                   backgroundColor: active ? colors.accentSubtle : colors.chipBg,
                   borderRadius: r.pill,
@@ -206,10 +226,7 @@ export default function DesignsScreen() {
                   paddingVertical: sp.xs,
                 }]}
               >
-                <Text style={[typo.scale.label, {
-                  fontFamily: typo.fonts.sansMed,
-                  color: active ? colors.accent : colors.textMid,
-                }]}>
+                <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansMed, color: active ? colors.accent : colors.textMid }]}>
                   {occ}
                 </Text>
               </Pressable>
@@ -218,34 +235,75 @@ export default function DesignsScreen() {
         </ScrollView>
       </View>
 
-      {/* Results count */}
-      <View style={[styles.resultsBar, { paddingHorizontal: sp.base, paddingVertical: sp.sm }]}>
-        <Text style={[typo.scale.caption, { color: colors.textMid, fontFamily: typo.fonts.sans }]}>
-          {filtered.length} {filtered.length === 1 ? 'design' : 'designs'} found
-        </Text>
-      </View>
+      {/* Error state */}
+      {isError && !isLoading && (
+        <View style={styles.empty}>
+          <IconSymbol name="exclamationmark.triangle" size={36} color={colors.textLow} />
+          <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
+            Couldn't load designs.{'\n'}Check your connection and try again.
+          </Text>
+          <Pressable
+            onPress={() => refetch()}
+            style={[{ marginTop: sp.lg, backgroundColor: colors.accent, borderRadius: r.pill, paddingHorizontal: sp.xl, paddingVertical: sp.sm }]}
+          >
+            <Text style={[typo.scale.label, { color: colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>RETRY</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Grid */}
-      <FlatList
-        data={filtered}
-        keyExtractor={item => item._id}
-        renderItem={renderItem}
-        numColumns={2}
-        contentContainerStyle={[styles.listContent, {
-          paddingHorizontal: H_PAD,
-          paddingTop: sp.md,
-          paddingBottom: insets.bottom + sp['4xl'],
-        }]}
-        columnWrapperStyle={{ marginBottom: CARD_GAP }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <IconSymbol name="magnifyingglass" size={40} color={colors.textLow} />
-            <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
-              No designs found.{'\n'}Try a different filter.
-            </Text>
-          </View>
-        }
-      />
+      {!isError && (isLoading ? (
+        <View style={[styles.skeletonGrid, { paddingHorizontal: H_PAD, paddingTop: sp.md }]}>
+          {[0, 1, 2, 3].map(i => (
+            <View key={i} style={{ marginLeft: i % 2 === 1 ? CARD_GAP : 0, marginBottom: CARD_GAP }}>
+              <SkeletonDesignCard width={CARD_WIDTH} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={designs}
+          keyExtractor={item => item._id}
+          renderItem={renderItem}
+          numColumns={2}
+          refreshControl={<RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} tintColor={colors.accent} />}
+          contentContainerStyle={[styles.listContent, {
+            paddingHorizontal: H_PAD,
+            paddingTop: sp.md,
+            paddingBottom: insets.bottom + sp['4xl'],
+          }]}
+          columnWrapperStyle={{ marginBottom: CARD_GAP }}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <IconSymbol name="magnifyingglass" size={40} color={colors.textLow} />
+              <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
+                No designs found.{'\n'}Try a different filter.
+              </Text>
+            </View>
+          }
+          ListFooterComponent={
+            totalPages > 1 ? (
+              <View style={[styles.pagination, { marginTop: sp.xl }]}>
+                <Pressable
+                  disabled={page <= 1}
+                  onPress={() => setPage(p => p - 1)}
+                  style={[styles.pageBtn, { backgroundColor: page <= 1 ? colors.panel : colors.accent, borderRadius: r.sm, paddingHorizontal: sp.lg, paddingVertical: sp.sm }]}
+                >
+                  <Text style={[typo.scale.label, { color: page <= 1 ? colors.textLow : colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>PREV</Text>
+                </Pressable>
+                <Text style={[typo.scale.bodySmall, { color: colors.textMid, fontFamily: typo.fonts.sans }]}>{page} / {totalPages}</Text>
+                <Pressable
+                  disabled={page >= totalPages}
+                  onPress={() => setPage(p => p + 1)}
+                  style={[styles.pageBtn, { backgroundColor: page >= totalPages ? colors.panel : colors.accent, borderRadius: r.sm, paddingHorizontal: sp.lg, paddingVertical: sp.sm }]}
+                >
+                  <Text style={[typo.scale.label, { color: page >= totalPages ? colors.textLow : colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>NEXT</Text>
+                </Pressable>
+              </View>
+            ) : null
+          }
+        />
+      ))}
     </View>
   );
 }
@@ -256,16 +314,19 @@ const styles = StyleSheet.create({
   searchBar: { flexDirection: 'row', alignItems: 'center', height: 42, borderWidth: 1, gap: 8 },
   searchInput: { flex: 1, padding: 0 },
   sortRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sortPills: { flexDirection: 'row', gap: 6 },
+  sortPills: { flexDirection: 'row', gap: 6, flex: 1 },
   sortPill: { borderWidth: 1 },
   pillsRow: { paddingVertical: 10, borderBottomWidth: 1 },
   occasionPill: { borderWidth: 1 },
-  resultsBar: { flexDirection: 'row', alignItems: 'center' },
+  skeletonGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   listContent: {},
   card: { borderWidth: 1, overflow: 'hidden' },
   imageArea: { overflow: 'hidden' },
   imageOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, backgroundColor: 'rgba(0,0,0,0.15)' },
   trendingBadge: { position: 'absolute', top: 8, left: 8 },
   cardInfo: {},
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 16 },
+  pageBtn: {},
 });

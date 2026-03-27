@@ -9,7 +9,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: true,
     tags: ['embroidery', 'floor-length', 'net'],
     requiredMeasurements: ['bust', 'waist', 'length'],
-    imageColor: '#E879A0',
   },
   {
     _id: 'd2', slug: 'classic-shalwar-kameez',
@@ -19,7 +18,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: false,
     tags: ['cotton', 'everyday'],
     requiredMeasurements: ['chest', 'waist', 'length', 'sleeve'],
-    imageColor: '#60A5FA',
   },
   {
     _id: 'd3', slug: 'bridal-lehenga',
@@ -29,7 +27,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: true,
     tags: ['zari', 'heavy-embroidery', 'dupatta'],
     requiredMeasurements: ['bust', 'waist', 'hip', 'length'],
-    imageColor: '#F59E0B',
   },
   {
     _id: 'd4', slug: 'eid-sharara-set',
@@ -39,7 +36,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: true,
     tags: ['chiffon', 'mirror-work'],
     requiredMeasurements: ['bust', 'waist', 'hip'],
-    imageColor: '#A78BFA',
   },
   {
     _id: 'd5', slug: 'office-palazzo-suit',
@@ -49,7 +45,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: false,
     tags: ['linen', 'minimalist'],
     requiredMeasurements: ['bust', 'waist', 'length'],
-    imageColor: '#34D399',
   },
   {
     _id: 'd6', slug: 'embroidered-coord-set',
@@ -59,7 +54,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: false,
     tags: ['gota', 'peplum'],
     requiredMeasurements: ['bust', 'waist', 'hip'],
-    imageColor: '#FB923C',
   },
   {
     _id: 'd7', slug: 'casual-kurta-set',
@@ -69,7 +63,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: false,
     tags: ['lawn', 'printed'],
     requiredMeasurements: ['bust', 'waist', 'length'],
-    imageColor: '#86EFAC',
   },
   {
     _id: 'd8', slug: 'sherwani-classic',
@@ -79,7 +72,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: true,
     tags: ['velvet', 'gold-buttons', 'formal'],
     requiredMeasurements: ['chest', 'waist', 'hip', 'length', 'sleeve'],
-    imageColor: '#6D28D9',
   },
   {
     _id: 'd9', slug: 'silk-abaya-embroidered',
@@ -89,7 +81,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: false,
     tags: ['silk', 'modest', 'floor-length'],
     requiredMeasurements: ['bust', 'hip', 'length', 'sleeve'],
-    imageColor: '#1E3A5F',
   },
   {
     _id: 'd10', slug: 'kids-eid-frock',
@@ -99,7 +90,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: true,
     tags: ['organza', 'bow', 'puffy'],
     requiredMeasurements: ['age', 'bust', 'length'],
-    imageColor: '#F9A8D4',
   },
   {
     _id: 'd11', slug: 'shalwar-kameez-formal',
@@ -109,7 +99,6 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: false,
     tags: ['khaddar', 'embroidered-collar'],
     requiredMeasurements: ['chest', 'waist', 'length', 'sleeve'],
-    imageColor: '#5B4A3F',
   },
   {
     _id: 'd12', slug: 'party-ghagra-choli',
@@ -119,6 +108,5 @@ export const DESIGN_FIXTURES: Design[] = [
     images: [], isTrending: true,
     tags: ['sequins', 'heavy', 'dupatta'],
     requiredMeasurements: ['bust', 'waist', 'hip', 'length'],
-    imageColor: '#C084FC',
   },
 ];

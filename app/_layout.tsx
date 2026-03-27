@@ -47,6 +47,7 @@ function RootNavigator() {
         <Stack.Screen name="store/[slug]" options={{ headerShown: false }} />
         <Stack.Screen name="designs/[slug]" options={{ headerShown: false }} />
         <Stack.Screen name="tailors/[slug]" options={{ headerShown: false }} />
+        <Stack.Screen name="orders/new" options={{ headerShown: false }} />
         <Stack.Screen name="cart" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />

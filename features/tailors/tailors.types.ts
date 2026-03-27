@@ -1,19 +1,14 @@
-// Mirrors the frontend TailorCard interface exactly.
-// initials and avatarColor are mobile-only helpers derived from userId.name / _id.
-
 export interface TailorPortfolioItem {
   imageUrl: string;
   caption?: string;
-  imageColor: string;
 }
 
 export interface Tailor {
   _id: string;
   slug: string;
-  userId: { name: string } | string | null;
+  userId: { _id: string; name: string } | string | null;
   tier: 'standard' | 'premium' | 'master';
   serviceAreas: Array<{ city: string; area?: string }>;
-  pricing?: { shalwarKameez?: number; suit?: number; bridal?: number };
   categoryPricing?: Array<{
     garmentCategoryId: string;
     garmentCategorySlug: string;
@@ -25,7 +20,24 @@ export interface Tailor {
   completedOrders: number;
   isAvailable: boolean;
   portfolio?: TailorPortfolioItem[];
-  // Mobile-only helpers
-  initials: string;
-  avatarColor: string;
+}
+
+export type TailorSort = 'rating' | 'orders' | 'price_asc';
+
+export interface TailorQuery {
+  search?: string;
+  city?: string;
+  tier?: 'standard' | 'premium' | 'master';
+  specialisation?: string;
+  available?: boolean;
+  sort?: TailorSort;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedTailors {
+  tailors: Tailor[];
+  total: number;
+  page: number;
+  pages: number;
 }
