@@ -1,32 +1,20 @@
 import React, { useCallback } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 
 import { useTheme } from '@shared/theme';
+import type { Design } from '@features/designs/designs.types';
+import { useGetDesignsQuery } from '@services/designsApi';
 
 export interface TrendingDesignsProps {}
 
-interface DesignFixture {
-  _id: string;
-  slug: string;
-  title: string;
-  occasion: string;
-  imageUrl: string | null;
-}
-
-const DESIGN_FIXTURES: DesignFixture[] = [
-  { _id: '1', slug: 'anarkali-formal',   title: 'Anarkali Formal',         occasion: 'formal',  imageUrl: null },
-  { _id: '2', slug: 'bridal-lehenga',    title: 'Bridal Lehenga',          occasion: 'bridal',  imageUrl: null },
-  { _id: '3', slug: 'eid-kurta',         title: 'Eid Kurta',               occasion: 'eid',     imageUrl: null },
-  { _id: '4', slug: 'casual-shalwar',    title: 'Casual Shalwar Kameez',   occasion: 'casual',  imageUrl: null },
-  { _id: '5', slug: 'office-khaddar',    title: 'Office Khaddar',          occasion: 'office',  imageUrl: null },
-  { _id: '6', slug: 'party-chiffon',     title: 'Party Chiffon',           occasion: 'party',   imageUrl: null },
-];
+const QUERY_PARAMS = { sort: 'trending', limit: 6 } as const;
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface DesignCardProps {
-  design: DesignFixture;
+  design: Design;
   cardWidth: number;
   onPress: (slug: string) => void;
 }
@@ -37,6 +25,7 @@ const DesignCard = React.memo(function DesignCard({
   onPress,
 }: DesignCardProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
+  const imageUrl = design.images[0]?.url;
 
   const styles = StyleSheet.create({
     card: {
@@ -80,12 +69,20 @@ const DesignCard = React.memo(function DesignCard({
     onPress(design.slug);
   }, [onPress, design.slug]);
 
-  const occasionLabel =
-    design.occasion.charAt(0).toUpperCase() + design.occasion.slice(1);
+  const occasion = design.occasion[0] ?? '';
+  const occasionLabel = occasion.charAt(0).toUpperCase() + occasion.slice(1);
 
   return (
     <Pressable style={styles.card} onPress={handlePress}>
-      <View style={styles.imageArea} />
+      <View style={styles.imageArea}>
+        {imageUrl !== undefined && (
+          <Image
+            source={{ uri: imageUrl }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+        )}
+      </View>
       <View style={styles.body}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{occasionLabel}</Text>
@@ -101,8 +98,9 @@ const DesignCard = React.memo(function DesignCard({
 export const TrendingDesigns = React.memo(function TrendingDesigns(
   _props: TrendingDesignsProps,
 ): React.JSX.Element {
-  const { sp } = useTheme();
+  const { sp, colors } = useTheme();
   const router = useRouter();
+  const { data, isLoading, isError } = useGetDesignsQuery(QUERY_PARAMS);
 
   const cardWidth = (SCREEN_WIDTH - sp.base * 2 - sp.sm) / 2;
 
@@ -122,9 +120,23 @@ export const TrendingDesigns = React.memo(function TrendingDesigns(
     [router],
   );
 
+  if (isLoading) {
+    return (
+      <View style={{ paddingHorizontal: sp.base }}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return <View />;
+  }
+
+  const designs = data?.designs ?? [];
+
   return (
     <View style={styles.grid}>
-      {DESIGN_FIXTURES.map(design => (
+      {designs.map(design => (
         <DesignCard
           key={design._id}
           design={design}

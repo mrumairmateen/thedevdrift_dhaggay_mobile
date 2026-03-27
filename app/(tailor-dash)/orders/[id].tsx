@@ -486,8 +486,10 @@ export default function TailorOrderDetailScreen(): React.JSX.Element {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const orderId = id ?? '';
-  const { data: order, isLoading, isError, refetch } = useGetTailorOrderByIdQuery(orderId);
+  const orderId = Array.isArray(id) ? (id[0] ?? '') : (id ?? '');
+  const { data: order, isLoading, isError, refetch } = useGetTailorOrderByIdQuery(orderId, {
+    skip: orderId === '',
+  });
 
   const handleBack = useCallback(() => {
     router.back();

@@ -14,7 +14,6 @@ import { ErrorBanner, SectionHeader, Skeleton } from '@shared/components/ui';
 
 import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
 import { LoyaltyBalanceHero } from '@features/dashboard/components/loyalty/LoyaltyBalanceHero';
-import { HowToEarnTable } from '@features/dashboard/components/loyalty/HowToEarnTable';
 import { ReferralCard } from '@features/dashboard/components/loyalty/ReferralCard';
 import { TransactionRow } from '@features/dashboard/components/loyalty/TransactionRow';
 import type { LoyaltyTransaction } from '@features/dashboard/dashboard.types';
@@ -127,14 +126,6 @@ export default function LoyaltyScreen(): React.JSX.Element {
         {loyalty?.balance !== undefined && (
           <View>
             <LoyaltyBalanceHero balance={loyalty.balance} />
-          </View>
-        )}
-
-        {/* How to earn */}
-        {loyalty?.earnRules !== undefined && loyalty.earnRules.length > 0 && (
-          <View>
-            <Text style={styles.sectionTitle}>How to Earn Points</Text>
-            <HowToEarnTable rules={loyalty.earnRules} />
           </View>
         )}
 

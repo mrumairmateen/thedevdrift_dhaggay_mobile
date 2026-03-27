@@ -12,15 +12,15 @@ export function ReferralCard({ data }: Props): React.JSX.Element {
 
   const copyCode = async (): Promise<void> => {
     try {
-      await Share.share({ message: data.code, title: 'My Dhaggay Referral Code' });
+      await Share.share({ message: data.referralCode, title: 'My Dhaggay Referral Code' });
     } catch {
-      Alert.alert('Your Code', data.code);
+      Alert.alert('Your Code', data.referralCode);
     }
   };
 
   const shareLink = async (): Promise<void> => {
     try {
-      await Share.share({ message: `Join Dhaggay with my referral link: ${data.link}` });
+      await Share.share({ message: `Join Dhaggay with my referral link: ${data.referralLink}` });
     } catch {
       // user cancelled share sheet — no-op
     }
@@ -129,7 +129,7 @@ export function ReferralCard({ data }: Props): React.JSX.Element {
       {/* Code box */}
       <Text style={styles.label}>Your Referral Code</Text>
       <View style={styles.codeBox}>
-        <Text style={styles.codeText}>{data.code}</Text>
+        <Text style={styles.codeText}>{data.referralCode}</Text>
       </View>
 
       {/* Action buttons */}
@@ -154,14 +154,14 @@ export function ReferralCard({ data }: Props): React.JSX.Element {
       <View style={styles.stats}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
-            {(data.totalReferrals ?? 0).toLocaleString()}
+            {data.referredCount.toLocaleString()}
           </Text>
           <Text style={styles.statLabel}>Referred</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
-            {(data.earnedPoints ?? 0).toLocaleString()}
+            {data.pointsEarned.toLocaleString()}
           </Text>
           <Text style={styles.statLabel}>Points Earned</Text>
         </View>

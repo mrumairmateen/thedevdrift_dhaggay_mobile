@@ -9,8 +9,8 @@ import { useTheme } from '@shared/theme';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface Props {
-  /** Full status history from the API — used to determine completed steps */
-  statusHistory: OrderStep[];
+  /** Full status history from the API — used to determine completed steps. Optional on list responses. */
+  statusHistory?: OrderStep[];
   status: OrderStatus;
 }
 
@@ -32,7 +32,7 @@ function buildCompletedSet(history: OrderStep[]): Set<OrderStatus> {
 export function OrderProgressBar({ statusHistory, status }: Props): React.JSX.Element {
   const { colors, sp, r, typo } = useTheme();
   const isCancelled = isCancelledStatus(status);
-  const completedStatuses = buildCompletedSet(statusHistory);
+  const completedStatuses = buildCompletedSet(statusHistory ?? []);
 
   // All statuses that should appear in the timeline: pipeline steps that
   // have been reached OR the special/terminal current status if not in ORDER_STEPS

@@ -315,7 +315,7 @@ export default function TailorOverviewScreen(): React.JSX.Element {
     );
   }
 
-  if (isError || data === undefined || data.profile === undefined || data.stats === undefined) {
+  if (isError || data === undefined || data.profile === undefined || data.stats === undefined || data.recentOrders === undefined) {
     return (
       <View style={styles.screen}>
         {header}

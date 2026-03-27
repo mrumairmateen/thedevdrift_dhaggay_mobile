@@ -1,7 +1,4 @@
 import type { HomeCategoryItem } from './home.types';
-import { DUMMY_PRODUCTS } from '@features/shop/shop.fixtures';
-
-export const DUMMY_FABRICS = DUMMY_PRODUCTS;
 
 export const CATEGORIES: HomeCategoryItem[] = [
   { slug: 'lawn',    label: 'Lawn',    color: '#16A34A', bgColor: '#DCFCE7', iconName: 'leaf.fill' },

@@ -666,12 +666,12 @@ export default function CalendarScreen(): React.JSX.Element {
           />
 
           <BlockedDatesSection
-            blockedDates={data.blockedDates}
+            blockedDates={data.blockedDates ?? []}
             onSave={handleSaveBlockedDates}
             isSaving={isUpdating}
           />
 
-          <UpcomingOrdersSection ordersByDate={data.ordersByDate} />
+          <UpcomingOrdersSection ordersByDate={data.ordersByDate ?? {}} />
 
         </View>
       </ScrollView>

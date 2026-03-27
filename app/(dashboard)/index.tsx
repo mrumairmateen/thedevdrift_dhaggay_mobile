@@ -210,7 +210,7 @@ export default function DashboardOverviewScreen(): React.JSX.Element {
         <Text style={styles.subtitle}>Customer Dashboard</Text>
       </View>
       <Avatar
-        uri={data?.user?.avatarUrl ?? authUser?.avatarUrl ?? undefined}
+        uri={data?.user?.avatarUrl ?? undefined}
         name={data?.user?.name ?? authUser?.name}
         size={40}
       />
@@ -258,7 +258,7 @@ export default function DashboardOverviewScreen(): React.JSX.Element {
     },
     {
       icon: 'person.fill' as const,
-      value: data.stats.referralCount,
+      value: data.stats.referrals,
       label: 'Referrals',
     },
   ];

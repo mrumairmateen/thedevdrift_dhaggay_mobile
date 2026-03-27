@@ -320,7 +320,7 @@ export default function EarningsScreen(): React.JSX.Element {
   // Platform fee as percentage display (e.g. 0.17 → 17%)
   const feePct = Math.round(data.platformFee * 100);
 
-  const maxNet = data.chart.reduce((max, entry) => Math.max(max, entry.net), 1);
+  const maxNet = (data.chart ?? []).reduce((max, entry) => Math.max(max, entry.net), 1);
 
   return (
     <View style={styles.screen}>
@@ -360,12 +360,12 @@ export default function EarningsScreen(): React.JSX.Element {
       </View>
 
       {/* 6-month chart */}
-      {data.chart.length > 0 && (
+      {(data.chart ?? []).length > 0 && (
         <View style={styles.chartSection}>
           <Text style={styles.chartTitle}>Last 6 Months (Net)</Text>
           <View style={styles.chartCard}>
             <View style={styles.chartBars}>
-              {data.chart.map((entry) => (
+              {(data.chart ?? []).map((entry) => (
                 <ChartBar key={entry.month} entry={entry} maxNet={maxNet} />
               ))}
             </View>
@@ -376,7 +376,7 @@ export default function EarningsScreen(): React.JSX.Element {
       {/* Earnings by order */}
       <View style={styles.listSection}>
         <Text style={styles.sectionTitle}>Earnings by Order</Text>
-        {data.byOrder.length === 0 ? (
+        {(data.byOrder ?? []).length === 0 ? (
           <EmptyState
             icon={<IconSymbol name="trophy.fill" size={32} color={colors.textLow} />}
             title="No earnings yet"
@@ -384,7 +384,7 @@ export default function EarningsScreen(): React.JSX.Element {
           />
         ) : (
           <FlatList
-            data={data.byOrder}
+            data={data.byOrder ?? []}
             keyExtractor={(item) => item._id}
             renderItem={renderEntry}
             contentContainerStyle={styles.listContent}

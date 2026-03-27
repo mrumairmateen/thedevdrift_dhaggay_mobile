@@ -1,33 +1,16 @@
 import React, { useCallback } from 'react';
-import { FlatList, ListRenderItem, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, ListRenderItem, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useTheme } from '@shared/theme';
 import { formatPkr } from '@shared/utils';
+import type { Tailor } from '@features/tailors/tailors.types';
+import { useGetTailorsQuery } from '@services/tailorsApi';
 
 export interface FeaturedTailorsProps {}
 
-type TailorTier = 'Master' | 'Premium' | 'Standard';
-
-interface TailorFixture {
-  _id: string;
-  slug: string;
-  name: string;
-  city: string;
-  tier: TailorTier;
-  rating: number;
-  reviewCount: number;
-  completedOrders: number;
-  startingPrice: number;
-  isAvailable: boolean;
-}
-
-const TAILOR_FIXTURES: TailorFixture[] = [
-  { _id: '1', slug: 'ustad-ibrahim', name: 'Ustad Ibrahim', city: 'Lahore',    tier: 'Master',   rating: 4.9, reviewCount: 312, completedOrders: 847, startingPrice: 2500, isAvailable: true  },
-  { _id: '2', slug: 'nazim-bhai',    name: 'Nazim Bhai',    city: 'Karachi',   tier: 'Premium',  rating: 4.8, reviewCount: 198, completedOrders: 423, startingPrice: 1800, isAvailable: true  },
-  { _id: '3', slug: 'ahmed-tailor',  name: 'Ahmed Master',  city: 'Islamabad', tier: 'Master',   rating: 4.9, reviewCount: 276, completedOrders: 612, startingPrice: 3000, isAvailable: false },
-];
+const QUERY_PARAMS = { sort: 'rating', limit: 5 } as const;
 
 function getInitials(name: string): string {
   const parts = name.split(' ');
@@ -39,7 +22,7 @@ function getInitials(name: string): string {
 }
 
 interface TailorCardProps {
-  tailor: TailorFixture;
+  tailor: Tailor;
   onPress: (slug: string) => void;
 }
 
@@ -49,15 +32,22 @@ const TailorCard = React.memo(function TailorCard({
 }: TailorCardProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
 
+  const name =
+    typeof tailor.userId === 'object' && tailor.userId !== null
+      ? tailor.userId.name
+      : 'Unknown';
+  const city = tailor.serviceAreas[0]?.city ?? '';
+  const startingPrice = tailor.categoryPricing?.[0]?.price ?? 0;
+
   const tierBg =
-    tailor.tier === 'Master'
+    tailor.tier === 'master'
       ? colors.accent
-      : tailor.tier === 'Premium'
+      : tailor.tier === 'premium'
       ? colors.info
       : colors.border;
 
   const tierTextColor =
-    tailor.tier === 'Standard' ? colors.textMid : colors.textOnAccent;
+    tailor.tier === 'standard' ? colors.textMid : colors.textOnAccent;
 
   const styles = StyleSheet.create({
     card: {
@@ -86,9 +76,6 @@ const TailorCard = React.memo(function TailorCard({
       ...typo.scale.bodySmall,
       fontFamily: typo.fonts.sansBold,
       color: colors.accent,
-    },
-    nameBlock: {
-      flex: 1,
     },
     name: {
       ...typo.scale.bodySmall,
@@ -152,10 +139,10 @@ const TailorCard = React.memo(function TailorCard({
   });
 
   const handlePress = useCallback(() => {
-    onPress(tailor.slug);
-  }, [onPress, tailor.slug]);
+    onPress(tailor.slug ?? tailor._id);
+  }, [onPress, tailor.slug, tailor._id]);
 
-  const initials = getInitials(tailor.name);
+  const initials = getInitials(name);
   const availColor = tailor.isAvailable ? colors.success : colors.error;
   const availLabel = tailor.isAvailable ? 'Available' : 'Unavailable';
 
@@ -166,8 +153,8 @@ const TailorCard = React.memo(function TailorCard({
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
       </View>
-      <Text style={styles.name}>{tailor.name}</Text>
-      <Text style={styles.city}>{tailor.city}</Text>
+      <Text style={styles.name}>{name}</Text>
+      <Text style={styles.city}>{city}</Text>
       <View style={styles.tierBadge}>
         <Text style={styles.tierText}>{tailor.tier}</Text>
       </View>
@@ -177,7 +164,9 @@ const TailorCard = React.memo(function TailorCard({
           {` ${tailor.rating.toFixed(1)} · ${tailor.reviewCount} reviews`}
         </Text>
       </View>
-      <Text style={styles.priceText}>{`From ${formatPkr(tailor.startingPrice)}`}</Text>
+      {startingPrice > 0 && (
+        <Text style={styles.priceText}>{`From ${formatPkr(startingPrice)}`}</Text>
+      )}
       <View style={styles.availRow}>
         <View style={[styles.availDot, { backgroundColor: availColor }]} />
         <Text style={[styles.availText, { color: availColor }]}>{availLabel}</Text>
@@ -189,8 +178,9 @@ const TailorCard = React.memo(function TailorCard({
 export const FeaturedTailors = React.memo(function FeaturedTailors(
   _props: FeaturedTailorsProps,
 ): React.JSX.Element {
-  const { sp } = useTheme();
+  const { sp, colors } = useTheme();
   const router = useRouter();
+  const { data, isLoading, isError } = useGetTailorsQuery(QUERY_PARAMS);
 
   const styles = StyleSheet.create({
     contentContainer: {
@@ -206,16 +196,30 @@ export const FeaturedTailors = React.memo(function FeaturedTailors(
     [router],
   );
 
-  const renderItem = useCallback<ListRenderItem<TailorFixture>>(
+  const renderItem = useCallback<ListRenderItem<Tailor>>(
     ({ item }) => <TailorCard tailor={item} onPress={handlePress} />,
     [handlePress],
   );
 
-  const keyExtractor = useCallback((item: TailorFixture) => item._id, []);
+  const keyExtractor = useCallback((item: Tailor) => item._id, []);
+
+  if (isLoading) {
+    return (
+      <View style={{ paddingHorizontal: sp.base }}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (isError) {
+    return <View />;
+  }
+
+  const tailors = data?.tailors ?? [];
 
   return (
     <FlatList
-      data={TAILOR_FIXTURES}
+      data={tailors}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       horizontal={true}

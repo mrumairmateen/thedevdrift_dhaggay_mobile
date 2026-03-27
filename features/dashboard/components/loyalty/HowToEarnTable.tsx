@@ -1,6 +1,11 @@
-import type { EarnRule } from '@features/dashboard/dashboard.types';
 import { useTheme } from '@shared/theme';
 import { StyleSheet, Text, View } from 'react-native';
+
+interface EarnRule {
+  action: string;
+  points: number;
+  description: string;
+}
 
 interface Props {
   rules: EarnRule[];

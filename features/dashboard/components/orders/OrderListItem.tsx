@@ -14,6 +14,11 @@ export const OrderListItem = React.memo(function OrderListItem({ order, onPress 
   const { colors, sp, r, typo } = useTheme();
   const handlePress = useCallback(() => onPress(order._id), [onPress, order._id]);
 
+  const firstItem = order.items[0];
+  const thumbUrl = firstItem?.productId.images[0]?.url ?? null;
+  const productTitle = firstItem?.productId.title ?? '—';
+  const extraCount = order.items.length > 1 ? order.items.length - 1 : 0;
+
   return (
     <Pressable
       onPress={handlePress}
@@ -30,9 +35,9 @@ export const OrderListItem = React.memo(function OrderListItem({ order, onPress 
       ]}
     >
       {/* Thumbnail */}
-      {order.product?.imageUrl ? (
+      {thumbUrl ? (
         <Image
-          source={{ uri: order.product.imageUrl }}
+          source={{ uri: thumbUrl }}
           style={[styles.thumb, { borderRadius: r.md, backgroundColor: colors.panel }]}
         />
       ) : (
@@ -45,7 +50,8 @@ export const OrderListItem = React.memo(function OrderListItem({ order, onPress 
           style={[typo.scale.bodySmall, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}
           numberOfLines={2}
         >
-          {order.product?.title ?? '—'}
+          {productTitle}
+          {extraCount > 0 ? ` +${extraCount} more` : ''}
         </Text>
         <Text
           style={[
@@ -53,7 +59,7 @@ export const OrderListItem = React.memo(function OrderListItem({ order, onPress 
             { fontFamily: typo.fonts.sans, color: colors.textLow, marginTop: 2 },
           ]}
         >
-          #{order.orderNumber}
+          #{order.orderId}
         </Text>
         <View style={{ marginTop: sp.xs }}>
           <StatusBadge status={order.status} />
@@ -63,7 +69,7 @@ export const OrderListItem = React.memo(function OrderListItem({ order, onPress 
       {/* Price + chevron */}
       <View style={styles.right}>
         <Text style={[typo.scale.price, { fontFamily: typo.fonts.sansBold, color: colors.accent }]}>
-          ₨{(order.totalAmount ?? 0).toLocaleString()}
+          ₨{order.pricing.total.toLocaleString()}
         </Text>
         <IconSymbol name="chevron.right" size={16} color={colors.textLow} />
       </View>

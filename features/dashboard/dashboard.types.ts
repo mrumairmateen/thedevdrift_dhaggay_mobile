@@ -19,6 +19,7 @@ export type OrderStatus =
   | 'cancelled_post_dispute';
 
 export interface OrderStep {
+  _id?: string;
   status: OrderStatus;
   changedAt: string;
   changedBy?: string;
@@ -107,7 +108,7 @@ export interface DashboardStats {
   totalOrders: number;
   activeOrders: number;
   loyaltyPoints: number;
-  referralCount: number;
+  referrals: number;
 }
 
 export interface ActiveOrder {
@@ -122,9 +123,12 @@ export interface ActiveOrder {
 }
 
 export interface DashboardUser {
+  _id: string;
   name: string;
+  email: string;
   phone: string;
-  avatarUrl: string | null;
+  loyaltyPoints: number;
+  avatarUrl?: string | null;
 }
 
 export interface CustomerDashboard {
@@ -134,20 +138,6 @@ export interface CustomerDashboard {
 }
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
-
-export interface OrderProduct {
-  _id: string;
-  title: string;
-  imageUrl: string | null;
-  category: string;
-}
-
-export interface OrderTailor {
-  _id: string;
-  name: string;
-  avatarUrl: string | null;
-  rating: number;
-}
 
 export interface Address {
   _id: string;
@@ -159,20 +149,111 @@ export interface Address {
   isDefault: boolean;
 }
 
+export interface OrderItemImage {
+  _id: string;
+  url: string;
+  publicId: string;
+}
+
+export interface OrderItemProduct {
+  _id: string;
+  title: string;
+  images: OrderItemImage[];
+}
+
+export interface OrderItemDesign {
+  _id: string;
+  title: string;
+}
+
+export interface MeasurementSnapshot {
+  _id: string;
+  label: string;
+  chest: number;
+  waist: number;
+  hips: number;
+  shoulder: number;
+  length: number;
+  sleeveLength: number;
+  customNotes?: string;
+}
+
+export interface OrderItemPricing {
+  fabricPrice: number;
+  stitchingFee: number;
+  platformFee: number;
+}
+
+export interface OrderItemShop {
+  _id: string;
+  name: string;
+}
+
+export interface OrderItem {
+  _id: string;
+  productId: OrderItemProduct;
+  /** String on list responses; populated object on detail response */
+  shopId: string | OrderItemShop;
+  designId: OrderItemDesign;
+  measurementSnapshot: MeasurementSnapshot;
+  designBrief: { referenceImages: string[] };
+  pricing: OrderItemPricing;
+  isRushOrder: boolean;
+  sellerAccepted: boolean;
+  fabricStatus: string;
+}
+
+export interface OrderTailorRef {
+  _id: string;
+  userId: {
+    _id: string;
+    name: string;
+  };
+  tier: string;
+}
+
+export interface OrderPricing {
+  deliveryFee: number;
+  loyaltyDiscount: number;
+  promoDiscount: number;
+  total: number;
+}
+
+export interface OrderDeliveryAddress {
+  line1: string;
+  city: string;
+  area?: string;
+  phone?: string;
+}
+
+export interface OrderCancellation {
+  reason: string;
+  refundAmount: number;
+  cancelledAt: string;
+  cancelledBy: string;
+  actorRole: string;
+}
+
 export interface Order {
   _id: string;
-  orderNumber: string;
-  product: OrderProduct;
-  tailor: OrderTailor | null;
+  orderId: string;
+  /** String on list responses; populated object on detail response */
+  customerId: string | { _id: string; name: string; phone: string };
+  tailorId: OrderTailorRef | null;
+  shopId: string;
+  items: OrderItem[];
   status: OrderStatus;
-  statusHistory: OrderStep[];
-  totalAmount: number;
-  currency: 'PKR';
-  placedAt: string;
+  /** Present on detail fetch; absent from list responses */
+  statusHistory?: OrderStep[];
+  pricing: OrderPricing;
   estimatedDelivery: string | null;
-  deliveryAddress: Omit<Address, '_id' | 'isDefault'>;
-  measurements: Record<string, number> | null;
-  notes: string | null;
+  createdAt: string;
+  /** Detail-only */
+  deliveryAddress?: OrderDeliveryAddress;
+  /** Detail-only — present when order is cancelled */
+  cancellation?: OrderCancellation;
+  isGift?: boolean;
+  loyaltyPointsRedeemed?: number;
 }
 
 export interface PaginatedOrders {
@@ -190,22 +271,6 @@ export interface OrderQuery {
 
 // ─── Loyalty ──────────────────────────────────────────────────────────────────
 
-export type LoyaltyTier = 'bronze' | 'silver' | 'gold' | 'platinum';
-
-export interface LoyaltyBalance {
-  points: number;
-  tier: LoyaltyTier;
-  nextTierPoints: number;
-  nextTier: string;
-  progressPercent: number; // 0–100
-}
-
-export interface EarnRule {
-  action: string;
-  points: number;
-  description: string;
-}
-
 export type TransactionType = 'earn' | 'redeem' | 'expire' | 'reversed';
 
 export interface LoyaltyTransaction {
@@ -217,17 +282,18 @@ export interface LoyaltyTransaction {
 }
 
 export interface LoyaltyData {
-  balance: LoyaltyBalance;
+  balance: number;
   transactions: LoyaltyTransaction[];
-  earnRules: EarnRule[];
+  total: number;
+  page: number;
+  pages: number;
 }
 
 export interface ReferralData {
-  code: string;
-  link: string;
-  totalReferrals: number;
-  pendingReferrals: number;
-  earnedPoints: number;
+  referralCode: string;
+  referralLink: string;
+  referredCount: number;
+  pointsEarned: number;
 }
 
 // ─── Wishlist ─────────────────────────────────────────────────────────────────
@@ -270,10 +336,14 @@ export interface UserProfile {
   _id: string;
   name: string;
   phone: string;
-  email: string | null;
+  email: string;
+  role: string;
+  isVerified: boolean;
+  loyaltyPoints: number;
+  referralCode: string;
   avatarUrl: string | null;
-  notifications: NotificationPrefs;
-  addresses: Address[];
+  notificationPreferences: NotificationPrefs;
+  savedAddresses: Address[];
 }
 
 export interface UpdateProfileInput {

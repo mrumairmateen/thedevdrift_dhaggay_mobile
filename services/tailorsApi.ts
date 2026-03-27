@@ -1,63 +1,39 @@
 import { api } from './api';
+import type {
+  ApiResponse,
+  PaginatedTailors,
+  Tailor,
+  TailorQuery,
+} from '@features/tailors/tailors.types';
 
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-}
-
-export interface TailorQuery {
-  page?: number;
-  limit?: number;
-  city?: string;
-  tier?: 'Master' | 'Premium' | 'Standard';
-  search?: string;
-  sort?: 'rating' | 'newest' | 'popular';
-  available?: boolean;
-}
-
-export interface TailorProfile {
-  _id: string;
-  slug: string;
-  name: string;
-  bio?: string;
-  city: string;
-  tier: 'Master' | 'Premium' | 'Standard';
-  rating: number;
-  reviewCount: number;
-  completedOrders: number;
-  startingPrice: number;
-  isAvailable: boolean;
-  avatarUrl: string | null;
-  portfolioImages: string[];
-  specialties: string[];
-  turnaroundDays: number;
-  isVerified: boolean;
-}
-
-export interface PaginatedTailors {
-  tailors: TailorProfile[];
-  total: number;
-  page: number;
-  pages: number;
-}
+export type { TailorQuery, PaginatedTailors, Tailor };
 
 export const tailorsApi = api.injectEndpoints({
   endpoints: (build) => ({
     getTailors: build.query<PaginatedTailors, TailorQuery>({
       query: (params) => ({ url: '/tailors', params }),
-      transformResponse: (res: ApiResponse<PaginatedTailors>) => res.data,
+      transformResponse: (res: ApiResponse<PaginatedTailors>) => {
+        console.log('[tailorsApi] getTailors raw response:', JSON.stringify(res));
+        return res.data;
+      },
       providesTags: ['Tailor'],
     }),
 
-    getTailorBySlug: build.query<TailorProfile, string>({
+    getTailorBySlug: build.query<Tailor, string>({
       query: (slug) => `/tailors/${slug}`,
-      transformResponse: (res: ApiResponse<TailorProfile>) => res.data,
+      transformResponse: (res: ApiResponse<Tailor>) => {
+        console.log('[tailorsApi] getTailorBySlug raw response:', JSON.stringify(res));
+        return res.data;
+      },
       providesTags: (_r, _e, slug) => [{ type: 'Tailor' as const, id: slug }],
     }),
 
-    getFeaturedTailors: build.query<TailorProfile[], void>({
+    getFeaturedTailors: build.query<Tailor[], void>({
       query: () => ({ url: '/tailors', params: { sort: 'rating', limit: 10 } }),
-      transformResponse: (res: ApiResponse<PaginatedTailors>) => res.data.tailors,
+      transformResponse: (res: ApiResponse<PaginatedTailors>) => {
+        console.log('[tailorsApi] getFeaturedTailors raw response:', JSON.stringify(res));
+        return res.data.tailors;
+      },
       providesTags: ['Tailor'],
     }),
   }),

@@ -168,13 +168,13 @@ export default function SettingsScreen(): React.JSX.Element {
         {/* Notifications */}
         <View>
           <SectionLabel label="Notifications" />
-          <NotificationToggles prefs={profile.notifications ?? { whatsapp: false, email: false, push: false }} />
+          <NotificationToggles prefs={profile.notificationPreferences} />
         </View>
 
         {/* Addresses */}
         <View>
           <SectionLabel label="Saved Addresses" />
-          <AddressList addresses={profile.addresses ?? []} />
+          <AddressList addresses={profile.savedAddresses} />
         </View>
 
         {/* Marketplace */}

@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 
 import {
   useGetTailorDashboardQuery,
+  useGetTailorCalendarQuery,
   useUpdateTailorProfileMutation,
 } from '@services/tailorDashApi';
 import { useTheme } from '@shared/theme';
@@ -169,9 +170,13 @@ function SpecialisationsSection({ current }: SpecialisationsSectionProps): React
 
 // ─── Capacity & Eid section ───────────────────────────────────────────────────
 
-function CapacitySection(): React.JSX.Element {
+interface CapacitySectionProps {
+  initialCapacity: number;
+}
+
+function CapacitySection({ initialCapacity }: CapacitySectionProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const [weeklyCapacity, setWeeklyCapacity] = useState(10);
+  const [weeklyCapacity, setWeeklyCapacity] = useState(initialCapacity);
   const [eidOptIn, setEidOptIn] = useState(false);
   const [updateProfile, { isLoading: isSaving }] = useUpdateTailorProfileMutation();
 
@@ -358,6 +363,7 @@ export default function TailorProfileScreen(): React.JSX.Element {
   const handleSignOut = useSignOut();
 
   const { data, isLoading, isError, refetch } = useGetTailorDashboardQuery();
+  const { data: calendarData } = useGetTailorCalendarQuery();
 
   const handleBrowseMarketplace = useCallback(() => {
     router.push('/(tabs)' as never);
@@ -487,7 +493,11 @@ export default function TailorProfileScreen(): React.JSX.Element {
           <SpecialisationsSection current={profile.specialisations} />
 
           {/* Capacity & Eid opt-in */}
-          <CapacitySection />
+          {calendarData !== undefined ? (
+            <CapacitySection initialCapacity={calendarData.weeklyCapacity} />
+          ) : (
+            <Skeleton width="100%" height={180} radius={r.md} />
+          )}
 
           {/* Service areas */}
           <View style={styles.sectionCard}>

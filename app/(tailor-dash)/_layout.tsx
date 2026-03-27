@@ -1,14 +1,10 @@
 import React from 'react';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { DashboardTabBar } from '@shared/components/DashboardTabBar';
-import { useTheme } from '@shared/theme';
 import { useAppSelector } from '@store/index';
 import { Tabs } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TailorDashLayout(): React.JSX.Element | null {
-  const { colors, sp, typo } = useTheme();
-  const insets = useSafeAreaInsets();
   const user = useAppSelector((s) => s.auth.user);
 
   if (!user || user.role !== 'tailor') return null;

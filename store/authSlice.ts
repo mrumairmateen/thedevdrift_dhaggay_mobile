@@ -2,11 +2,15 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export interface AuthUser {
-  id: string;
+  _id: string;
   name: string;
+  email?: string;
   phone: string;
   role: 'customer' | 'tailor' | 'seller' | 'delivery' | 'admin';
   status: 'active' | 'pending' | 'suspended' | 'in_review';
+  isVerified?: boolean;
+  createdAt?: string;
+  lastLoginAt?: string;
   avatarUrl?: string;
 }
 

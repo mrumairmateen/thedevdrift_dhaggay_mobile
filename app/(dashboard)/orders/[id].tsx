@@ -51,8 +51,8 @@ export default function OrderDetailScreen(): React.JSX.Element {
   }, [router]);
 
   const handleShare = useCallback(() => {
-    Alert.alert('Share Order', `Order ${order?.orderNumber ?? ''}`);
-  }, [order?.orderNumber]);
+    Alert.alert('Share Order', `Order ${order?.orderId ?? ''}`);
+  }, [order?.orderId]);
 
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
@@ -87,7 +87,7 @@ export default function OrderDetailScreen(): React.JSX.Element {
     },
   });
 
-  const headerTitle = order ? `Order #${order.orderNumber}` : 'Order Detail';
+  const headerTitle = order ? `Order #${order.orderId}` : 'Order Detail';
 
   return (
     <View style={styles.screen}>

@@ -1,3 +1,9 @@
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
+}
+
 export interface TailorPortfolioItem {
   imageUrl: string;
   caption?: string;
@@ -5,7 +11,7 @@ export interface TailorPortfolioItem {
 
 export interface Tailor {
   _id: string;
-  slug: string;
+  slug?: string;
   userId: { _id: string; name: string } | string | null;
   tier: 'standard' | 'premium' | 'master';
   serviceAreas: Array<{ city: string; area?: string }>;
