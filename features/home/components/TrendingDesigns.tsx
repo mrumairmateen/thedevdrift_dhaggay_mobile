@@ -1,106 +1,137 @@
-import { Image } from 'expo-image';
+import React, { useCallback } from 'react';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { Design } from '@features/designs/designs.types';
-import { useGetDesignsQuery } from '@services/designsApi';
 import { useTheme } from '@shared/theme';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const H_PAD = 16;
-const GAP = 12;
-const CARD_WIDTH = (SCREEN_WIDTH - H_PAD * 2 - GAP) / 2;
-const IMAGE_HEIGHT = Math.round(CARD_WIDTH * 1.3);
+export interface TrendingDesignsProps {}
 
-function SkeletonDesignCard() {
-  const { colors, r, sp } = useTheme();
-  return (
-    <View style={{ width: CARD_WIDTH, borderRadius: r.md, overflow: 'hidden', backgroundColor: colors.panel }}>
-      <View style={{ height: IMAGE_HEIGHT, backgroundColor: colors.panel }} />
-      <View style={{ padding: sp.sm, gap: sp.xs }}>
-        <View style={{ height: 9, width: '35%', backgroundColor: colors.border, borderRadius: r.sharp }} />
-        <View style={{ height: 14, width: '85%', backgroundColor: colors.border, borderRadius: r.sharp }} />
-      </View>
-    </View>
-  );
+interface DesignFixture {
+  _id: string;
+  slug: string;
+  title: string;
+  occasion: string;
+  imageUrl: string | null;
 }
 
-function DesignCard({ design }: { design: Design }) {
+const DESIGN_FIXTURES: DesignFixture[] = [
+  { _id: '1', slug: 'anarkali-formal',   title: 'Anarkali Formal',         occasion: 'formal',  imageUrl: null },
+  { _id: '2', slug: 'bridal-lehenga',    title: 'Bridal Lehenga',          occasion: 'bridal',  imageUrl: null },
+  { _id: '3', slug: 'eid-kurta',         title: 'Eid Kurta',               occasion: 'eid',     imageUrl: null },
+  { _id: '4', slug: 'casual-shalwar',    title: 'Casual Shalwar Kameez',   occasion: 'casual',  imageUrl: null },
+  { _id: '5', slug: 'office-khaddar',    title: 'Office Khaddar',          occasion: 'office',  imageUrl: null },
+  { _id: '6', slug: 'party-chiffon',     title: 'Party Chiffon',           occasion: 'party',   imageUrl: null },
+];
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+interface DesignCardProps {
+  design: DesignFixture;
+  cardWidth: number;
+  onPress: (slug: string) => void;
+}
+
+const DesignCard = React.memo(function DesignCard({
+  design,
+  cardWidth,
+  onPress,
+}: DesignCardProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const router = useRouter();
+
+  const styles = StyleSheet.create({
+    card: {
+      width: cardWidth,
+      backgroundColor: colors.elevated,
+      borderRadius: r.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      ...elev.low,
+    },
+    imageArea: {
+      aspectRatio: 0.85,
+      backgroundColor: colors.panel,
+      borderRadius: r.md,
+    },
+    body: {
+      padding: sp.sm,
+    },
+    badge: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.accentSubtle,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.xs,
+      paddingVertical: 2,
+    },
+    badgeText: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.accent,
+    },
+    title: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.serifBold,
+      color: colors.textHigh,
+      marginTop: sp.xs,
+    },
+  });
+
+  const handlePress = useCallback(() => {
+    onPress(design.slug);
+  }, [onPress, design.slug]);
+
+  const occasionLabel =
+    design.occasion.charAt(0).toUpperCase() + design.occasion.slice(1);
 
   return (
-    <Pressable
-      onPress={() => router.push(`/designs/${design.slug}` as any)}
-      style={[styles.card, elev.low, { width: CARD_WIDTH, backgroundColor: colors.elevated, borderColor: colors.border, borderRadius: r.md }]}
-    >
-      <View style={[styles.imageArea, { height: IMAGE_HEIGHT, backgroundColor: colors.panel, borderTopLeftRadius: r.md, borderTopRightRadius: r.md }]}>
-        {design.images[0]?.url ? (
-          <Image
-            source={{ uri: design.images[0].url }}
-            style={[StyleSheet.absoluteFill, { borderTopLeftRadius: r.md, borderTopRightRadius: r.md }]}
-            contentFit="cover"
-          />
-        ) : null}
-        {design.isTrending && (
-          <View style={[styles.trendingBadge, { backgroundColor: colors.warning, borderRadius: r.sharp, paddingHorizontal: sp.sm, paddingVertical: 3 }]}>
-            <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: '#fff', fontSize: 9 }]}>TRENDING</Text>
-          </View>
-        )}
-        <View style={styles.imageGradient} />
-      </View>
-
-      <View style={[styles.info, { padding: sp.sm }]}>
-        <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansMed, color: colors.accentMid, marginBottom: 2 }]}>
-          {(design.occasion[0] ?? '').toUpperCase()}
-        </Text>
-        <Text style={[typo.scale.bodySmall, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]} numberOfLines={2}>
+    <Pressable style={styles.card} onPress={handlePress}>
+      <View style={styles.imageArea} />
+      <View style={styles.body}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{occasionLabel}</Text>
+        </View>
+        <Text style={styles.title} numberOfLines={2}>
           {design.title}
         </Text>
       </View>
     </Pressable>
   );
-}
+});
 
-export function TrendingDesigns() {
-  const { sp, colors, typo } = useTheme();
-  const { data, isLoading, isError } = useGetDesignsQuery({ sort: 'trending', limit: 6 });
-  const designs = data?.designs ?? [];
+export const TrendingDesigns = React.memo(function TrendingDesigns(
+  _props: TrendingDesignsProps,
+): React.JSX.Element {
+  const { sp } = useTheme();
+  const router = useRouter();
 
-  if (isLoading) {
-    return (
-      <View style={[styles.grid, { paddingHorizontal: H_PAD, gap: GAP }]}>
-        {[0, 1, 2, 3].map(i => <SkeletonDesignCard key={i} />)}
-      </View>
-    );
-  }
+  const cardWidth = (SCREEN_WIDTH - sp.base * 2 - sp.sm) / 2;
 
-  if (isError || designs.length === 0) {
-    return (
-      <View style={{ paddingHorizontal: sp.base, paddingVertical: sp.xl, alignItems: 'center' }}>
-        <Text style={[typo.scale.bodySmall, { color: colors.textLow, fontFamily: typo.fonts.sans }]}>
-          {isError ? 'Could not load designs.' : 'No designs available.'}
-        </Text>
-      </View>
-    );
-  }
+  const styles = StyleSheet.create({
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      paddingHorizontal: sp.base,
+      gap: sp.sm,
+    },
+  });
+
+  const handlePress = useCallback(
+    (slug: string) => {
+      router.push(`/designs/${slug}` as Parameters<typeof router.push>[0]);
+    },
+    [router],
+  );
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[{ paddingHorizontal: H_PAD, gap: GAP, flexDirection: 'row', alignItems: 'flex-start' }]}
-    >
-      {designs.map(design => <DesignCard key={design._id} design={design} />)}
-    </ScrollView>
+    <View style={styles.grid}>
+      {DESIGN_FIXTURES.map(design => (
+        <DesignCard
+          key={design._id}
+          design={design}
+          cardWidth={cardWidth}
+          onPress={handlePress}
+        />
+      ))}
+    </View>
   );
-}
-
-const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
-  card: { borderWidth: 1, overflow: 'hidden' },
-  imageArea: { overflow: 'hidden' },
-  imageGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 40, backgroundColor: 'rgba(0,0,0,0.2)' },
-  trendingBadge: { position: 'absolute', top: 8, left: 8 },
-  info: {},
 });

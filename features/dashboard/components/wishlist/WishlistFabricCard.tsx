@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import type { WishlistProduct } from '@features/dashboard/dashboard.types';
 import { useTheme } from '@shared/theme';
 import { useToggleProductWishlistMutation } from '@services/wishlistApi';
@@ -16,7 +16,7 @@ export function WishlistFabricCard({ product }: Props) {
   const priceUnit = product.pricePerSuit ? '/suit' : '/m';
 
   const handleRemove = () => {
-    removeFromWishlist({ productId: product._id, action: 'remove' });
+    removeFromWishlist(product._id);
   };
 
   return (

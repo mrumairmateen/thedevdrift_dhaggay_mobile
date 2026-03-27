@@ -1,10 +1,10 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
+  FlatList,
+  ListRenderItem,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,315 +13,476 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorBanner } from '@shared/components/ui/ErrorBanner';
+import { Skeleton } from '@shared/components/ui/Skeleton';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { useGetTailorBySlugQuery } from '@services/tailorsApi';
+import type { TailorProfile } from '@services/tailorsApi';
 import { useTheme } from '@shared/theme';
+import type { ColorTokens } from '@shared/theme';
+import { formatPkr } from '@shared/utils';
+import { openAuthSheet } from '@store/authSlice';
+import { useAppDispatch, useAppSelector } from '@store/index';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const PORTFOLIO_GAP = 8;
-const H_PAD = 16;
-const PORTFOLIO_COL_W = (SCREEN_WIDTH - H_PAD * 2 - PORTFOLIO_GAP) / 2;
+const { width: SW } = Dimensions.get('window');
+const PORTFOLIO_SIZE = 120;
 
-const AVATAR_COLORS = ['#1A6B3C', '#6D28D9', '#B45309', '#0369A1', '#9D174D', '#BE123C'];
-function getInitials(name: string) {
-  return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?';
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() ?? '')
+    .join('') || '?';
 }
-function getAvatarColor(id: string) {
-  const sum = id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+
+// ── Loading skeleton ──────────────────────────────────────────────────────────
+
+function TailorSkeleton(): React.JSX.Element {
+  const { colors, sp, r } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg, padding: sp.base, gap: sp.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: sp.md, marginTop: sp['2xl'] }}>
+        <Skeleton width={72} height={72} radius={r.pill} />
+        <View style={{ flex: 1, gap: sp.sm }}>
+          <Skeleton width="65%" height={22} />
+          <Skeleton width="35%" height={14} />
+          <Skeleton width="45%" height={14} />
+        </View>
+      </View>
+      <Skeleton width="100%" height={80} radius={r.md} />
+      <View style={{ flexDirection: 'row', gap: sp.sm }}>
+        {[0, 1, 2, 3].map(i => (
+          <Skeleton key={i} width={(SW - sp.base * 2 - sp.sm * 3) / 4} height={72} radius={r.sm} />
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: sp.sm, flexWrap: 'wrap' }}>
+        {[0, 1, 2, 3].map(i => (
+          <Skeleton key={i} width={80} height={24} radius={r.pill} />
+        ))}
+      </View>
+    </View>
+  );
 }
 
-type ProfileTab = 'portfolio' | 'pricing' | 'reviews';
+// ── Availability pulsing dot ──────────────────────────────────────────────────
 
-export default function TailorProfileScreen() {
+function AvailabilityDot({ available }: { available: boolean }): React.JSX.Element {
+  const { colors, typo } = useTheme();
+  const dotColor = available ? colors.success : colors.error;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dotColor }} />
+      <Text style={{ ...typo.scale.bodySmall, fontFamily: typo.fonts.sansMed, color: dotColor }}>
+        {available ? 'Available Now' : 'Currently Busy'}
+      </Text>
+    </View>
+  );
+}
+
+// ── Tier badge color helper ───────────────────────────────────────────────────
+
+function getTierColors(
+  tier: TailorProfile['tier'],
+  colors: ColorTokens,
+): { bg: string; text: string } {
+  switch (tier) {
+    case 'Master':
+      return { bg: colors.accent, text: colors.textOnAccent };
+    case 'Premium':
+      return { bg: colors.info, text: colors.textOnAccent };
+    case 'Standard':
+    default:
+      return { bg: colors.panel, text: colors.textMid };
+  }
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
+export default function TailorProfileScreen(): React.JSX.Element {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { colors, sp, r, typo, elev } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ProfileTab>('portfolio');
+  const dispatch = useAppDispatch();
+  const isLoggedIn = useAppSelector(state => state.auth.user !== null);
 
   const { data: tailor, isLoading, isError, refetch } = useGetTailorBySlugQuery(slug ?? '');
 
-  const PROFILE_TABS: Array<{ key: ProfileTab; label: string }> = [
-    { key: 'portfolio', label: 'Portfolio' },
-    { key: 'pricing', label: 'Pricing' },
-    { key: 'reviews', label: 'Reviews' },
-  ];
+  const [bioExpanded, setBioExpanded] = useState(false);
 
-  const headerBar = (
-    <View style={[styles.header, elev.high, {
-      backgroundColor: colors.navSolid,
-      paddingTop: insets.top + sp.sm,
-      paddingHorizontal: sp.base,
-      paddingBottom: sp.md,
-      borderBottomColor: colors.border,
-    }]}>
-      <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-        <IconSymbol name="chevron.left" size={20} color={colors.textHigh} />
-        <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansMed, color: colors.textHigh }]}>Tailors</Text>
-      </Pressable>
-    </View>
+  const handleBack = useCallback(() => router.back(), [router]);
+  const handleToggleBio = useCallback(() => setBioExpanded(prev => !prev), []);
+
+  const handleBookTailor = useCallback(() => {
+    if (!tailor) return;
+    if (!isLoggedIn) {
+      dispatch(openAuthSheet('login'));
+      return;
+    }
+    router.push(`/orders/new?tailorId=${tailor._id}` as never);
+  }, [dispatch, isLoggedIn, router, tailor]);
+
+  const renderPortfolioItem = useCallback<ListRenderItem<string>>(
+    ({ item: imgUrl }) => (
+      <View
+        style={{
+          width: PORTFOLIO_SIZE,
+          height: PORTFOLIO_SIZE,
+          borderRadius: r.sm,
+          overflow: 'hidden',
+          backgroundColor: colors.panel,
+        }}
+      >
+        {imgUrl.length > 0 ? (
+          <Image source={{ uri: imgUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        ) : null}
+      </View>
+    ),
+    [colors.panel, r.sm],
   );
+
+  // ── Loading ───────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-        {headerBar}
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      </View>
-    );
-  }
-
-  if (isError || !tailor) {
-    return (
-      <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-        {headerBar}
-        <View style={styles.centered}>
-          <IconSymbol name="exclamationmark.triangle" size={40} color={colors.textLow} />
-          <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
-            {isError ? 'Could not load tailor.\nCheck your connection.' : 'Tailor not found.'}
-          </Text>
-          {isError && (
-            <Pressable
-              onPress={() => refetch()}
-              style={[{ marginTop: sp.lg, backgroundColor: colors.accent, borderRadius: r.pill, paddingHorizontal: sp.xl, paddingVertical: sp.sm }]}
-            >
-              <Text style={[typo.scale.label, { color: colors.textOnAccent, fontFamily: typo.fonts.sansBold }]}>RETRY</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    );
-  }
-
-  const stars = Math.round(tailor.rating);
-  const tierBg =
-    tailor.tier === 'master' ? colors.warning :
-    tailor.tier === 'premium' ? colors.accent :
-    colors.chipBg;
-  const tierText = tailor.tier === 'standard' ? colors.textMid : colors.textOnAccent;
-  const city = tailor.serviceAreas[0]?.city ?? '';
-  const area = tailor.serviceAreas[0]?.area;
-  const name = typeof tailor.userId === 'object' && tailor.userId !== null ? tailor.userId.name : 'Unknown';
-  const initials = getInitials(name);
-  const avatarColor = getAvatarColor(tailor._id);
-
-  return (
-    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-      {headerBar}
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + sp['4xl'] }}>
-        {/* Profile header card */}
-        <View style={[styles.profileCard, {
-          backgroundColor: colors.elevated,
-          borderBottomColor: colors.border,
-          borderBottomWidth: 1,
-          padding: sp.base,
-          paddingBottom: sp.lg,
-        }]}>
-          {/* Avatar + name + tier */}
-          <View style={[styles.avatarRow, { marginBottom: sp.md }]}>
-            <View style={[styles.bigAvatar, {
-              backgroundColor: avatarColor,
-              borderRadius: r.pill,
-              width: 72,
-              height: 72,
-            }]}>
-              <Text style={[typo.scale.title3, { fontFamily: typo.fonts.sansBold, color: '#fff' }]}>
-                {initials}
-              </Text>
-            </View>
-            <View style={styles.profileNameBlock}>
-              <Text style={[typo.scale.title3, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}>
-                {name}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <View style={[{ backgroundColor: tierBg, borderRadius: r.sharp, paddingHorizontal: sp.sm, paddingVertical: 3 }]}>
-                  <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: tierText, fontSize: 10 }]}>
-                    {tailor.tier.toUpperCase()}
-                  </Text>
-                </View>
-                {tailor.isAvailable ? (
-                  <View style={styles.availRow}>
-                    <View style={[styles.availDot, { backgroundColor: colors.success }]} />
-                    <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sansMed, color: colors.success }]}>Available now</Text>
-                  </View>
-                ) : (
-                  <View style={styles.availRow}>
-                    <View style={[styles.availDot, { backgroundColor: colors.warning }]} />
-                    <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sansMed, color: colors.warning }]}>Currently busy</Text>
-                  </View>
-                )}
-              </View>
-              <View style={[styles.cityRow, { marginTop: 4 }]}>
-                <IconSymbol name="location.fill" size={11} color={colors.textLow} />
-                <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textLow }]}>
-                  {' '}{area ? `${area}, ${city}` : city}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Stats row */}
-          <View style={[styles.statsRow, { backgroundColor: colors.panel, borderRadius: r.md, padding: sp.md, marginBottom: sp.md }]}>
-            <View style={styles.statItem}>
-              <View style={styles.starsRow}>
-                {[1, 2, 3, 4, 5].map(i => (
-                  <Text key={i} style={{ fontSize: 12, color: i <= stars ? colors.warning : colors.border }}>★</Text>
-                ))}
-              </View>
-              <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid }]}>
-                {tailor.rating.toFixed(1)} ({tailor.reviewCount})
-              </Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statItem}>
-              <Text style={[typo.scale.title3, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}>
-                {tailor.completedOrders}
-              </Text>
-              <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid }]}>Orders</Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statItem}>
-              <Text style={[typo.scale.title3, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}>
-                {tailor.specialisations.length}
-              </Text>
-              <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid }]}>Specialties</Text>
-            </View>
-          </View>
-
-          {/* Specialisations */}
-          {tailor.specialisations.length > 0 && (
-            <View style={[styles.specRow, { marginBottom: sp.md }]}>
-              {tailor.specialisations.map(s => (
-                <View key={s} style={[{ backgroundColor: colors.chipBg, borderRadius: r.sharp, paddingHorizontal: sp.sm, paddingVertical: 3 }]}>
-                  <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansMed, color: colors.textMid, fontSize: 10 }]}>{s}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Book Now CTA */}
-          <Pressable
-            onPress={() => router.push(`/orders/new?tailorId=${tailor._id}` as any)}
-            style={[styles.bookBtn, { backgroundColor: colors.accent, borderRadius: r.pill, paddingVertical: sp.md }]}
-          >
-            <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansBold, color: colors.textOnAccent, textAlign: 'center' }]}>
-              Book Now
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <View style={{ paddingTop: insets.top + sp.sm, paddingHorizontal: sp.base }}>
+          <Pressable onPress={handleBack} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <IconSymbol name="chevron.left" size={20} color={colors.accent} />
+            <Text style={{ ...typo.scale.body, fontFamily: typo.fonts.sansMed, color: colors.accent }}>
+              Back
             </Text>
           </Pressable>
         </View>
+        <TailorSkeleton />
+      </View>
+    );
+  }
 
-        {/* Tab bar */}
-        <View style={[styles.tabBar, { backgroundColor: colors.navSolid, borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
-          {PROFILE_TABS.map(tab => {
-            const active = tab.key === activeTab;
-            return (
-              <Pressable
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                style={[styles.tabItem, { borderBottomWidth: active ? 2 : 0, borderBottomColor: colors.accent, paddingVertical: sp.md }]}
-              >
-                <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: active ? colors.accent : colors.textMid, letterSpacing: 1 }]}>
-                  {tab.label.toUpperCase()}
-                </Text>
-              </Pressable>
-            );
-          })}
+  // ── Error ─────────────────────────────────────────────────────────────────
+
+  if (isError || !tailor) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <View style={{ paddingTop: insets.top + sp.sm, paddingHorizontal: sp.base }}>
+          <Pressable onPress={handleBack} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <IconSymbol name="chevron.left" size={20} color={colors.accent} />
+            <Text style={{ ...typo.scale.body, fontFamily: typo.fonts.sansMed, color: colors.accent }}>
+              Back
+            </Text>
+          </Pressable>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: sp['2xl'] }}>
+          <ErrorBanner
+            message={isError ? "Couldn't load this tailor. Check your connection." : 'Tailor not found.'}
+            onRetry={isError ? () => refetch() : undefined}
+          />
+          <Pressable onPress={handleBack} style={{ marginTop: sp.lg }}>
+            <Text style={{ ...typo.scale.bodySmall, fontFamily: typo.fonts.sansMed, color: colors.accent }}>
+              ← Go back
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+
+  const initials = getInitials(tailor.name);
+  const tierColors = getTierColors(tailor.tier, colors);
+  const portfolioImages = tailor.portfolioImages ?? [];
+
+  // ── Styles ────────────────────────────────────────────────────────────────
+
+  const s = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    scrollContent: { paddingBottom: 100 + insets.bottom },
+
+    // Top header bar (overlay)
+    headerBar: {
+      paddingTop: insets.top + sp.sm,
+      paddingHorizontal: sp.base,
+      paddingBottom: sp.md,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    headerBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: r.pill,
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerRight: { flexDirection: 'row', gap: sp.sm },
+
+    // Hero section
+    heroSection: { paddingHorizontal: sp.base, paddingBottom: sp.base },
+    avatarRow: { flexDirection: 'row', alignItems: 'flex-start', gap: sp.md, marginBottom: sp.md },
+    avatar: {
+      width: 72,
+      height: 72,
+      borderRadius: r.pill,
+      backgroundColor: colors.accentSubtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarText: { ...typo.scale.title3, fontFamily: typo.fonts.sansBold, color: colors.accent },
+    nameBlock: { flex: 1 },
+    nameText: { ...typo.scale.title2, fontFamily: typo.fonts.serifBold, color: colors.textHigh },
+    tierBadge: {
+      alignSelf: 'flex-start',
+      borderRadius: r.sharp,
+      paddingHorizontal: sp.sm,
+      paddingVertical: 3,
+      marginTop: sp.xs,
+    },
+    tierText: { ...typo.scale.label, fontFamily: typo.fonts.sansBold },
+    verifiedBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.infoSubtle,
+      borderRadius: r.sharp,
+      paddingHorizontal: sp.sm,
+      paddingVertical: 3,
+      marginTop: sp.xs,
+    },
+    verifiedText: { ...typo.scale.label, fontFamily: typo.fonts.sansMed, color: colors.info },
+    cityRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: sp.xs },
+    cityText: { ...typo.scale.caption, fontFamily: typo.fonts.sans, color: colors.textMid },
+    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: sp.xs },
+    ratingText: { ...typo.scale.bodySmall, fontFamily: typo.fonts.sans, color: colors.textMid },
+
+    // Quick stats row
+    statsRow: { flexDirection: 'row', gap: sp.sm, paddingHorizontal: sp.base, marginBottom: sp.base },
+    statCard: {
+      flex: 1,
+      backgroundColor: colors.elevated,
+      borderRadius: r.sm,
+      padding: sp.sm,
+      alignItems: 'center',
+    },
+    statValue: { ...typo.scale.title3, fontFamily: typo.fonts.sansBold, color: colors.textHigh },
+    statLabel: { ...typo.scale.caption, fontFamily: typo.fonts.sans, color: colors.textMid, marginTop: 2, textAlign: 'center' },
+
+    // Specialties
+    sectionHeader: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textLow,
+      paddingHorizontal: sp.base,
+      marginBottom: sp.sm,
+    },
+    specialtiesRow: { paddingHorizontal: sp.base, flexDirection: 'row', flexWrap: 'wrap', gap: sp.xs, marginBottom: sp.base },
+    specialtyChip: {
+      backgroundColor: colors.accentSubtle,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.md,
+      paddingVertical: sp.xs,
+    },
+    specialtyText: { ...typo.scale.caption, fontFamily: typo.fonts.sansMed, color: colors.accent },
+
+    // Portfolio
+    portfolioList: { marginBottom: sp.base },
+
+    // Bio
+    bioSection: { paddingHorizontal: sp.base, marginBottom: sp.base },
+    bioTitle: { ...typo.scale.label, fontFamily: typo.fonts.sansMed, color: colors.textLow, marginBottom: sp.sm },
+    bioText: { ...typo.scale.body, fontFamily: typo.fonts.sans, color: colors.textMid, lineHeight: 24 },
+    bioToggle: { ...typo.scale.caption, fontFamily: typo.fonts.sansMed, color: colors.accent, marginTop: 4 },
+
+    // Divider
+    divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginHorizontal: sp.base, marginBottom: sp.lg },
+
+    // Sticky CTA
+    stickyBar: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.navSolid,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      padding: sp.base,
+      ...elev.high,
+    },
+    bookBtn: {
+      backgroundColor: colors.accent,
+      borderRadius: r.pill,
+      height: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bookBtnText: { ...typo.scale.body, fontFamily: typo.fonts.sansBold, color: colors.textOnAccent },
+  });
+
+  return (
+    <View style={s.screen}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scrollContent}
+      >
+        {/* Header bar */}
+        <View style={s.headerBar}>
+          <Pressable onPress={handleBack} style={s.headerBtn}>
+            <IconSymbol name="chevron.left" size={20} color={colors.textHigh} />
+          </Pressable>
+          <View style={s.headerRight}>
+            <Pressable style={s.headerBtn}>
+              <IconSymbol name="square.and.arrow.up" size={18} color={colors.textHigh} />
+            </Pressable>
+          </View>
         </View>
 
-        {/* Portfolio */}
-        {activeTab === 'portfolio' && (
-          <View style={[styles.portfolioGrid, { padding: H_PAD, gap: PORTFOLIO_GAP }]}>
-            {(tailor.portfolio ?? []).length === 0 ? (
-              <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, textAlign: 'center', paddingVertical: sp['3xl'], width: '100%' }]}>
-                No portfolio items yet.
-              </Text>
-            ) : (tailor.portfolio ?? []).map((item, idx) => (
-              <View key={idx} style={[styles.portfolioItem, { width: PORTFOLIO_COL_W, borderRadius: r.md, overflow: 'hidden', backgroundColor: colors.panel }]}>
-                {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} style={{ width: PORTFOLIO_COL_W, height: PORTFOLIO_COL_W }} contentFit="cover" />
-                ) : (
-                  <View style={{ height: PORTFOLIO_COL_W, backgroundColor: colors.panel }} />
-                )}
-                {item.caption && (
-                  <View style={{ padding: sp.sm, backgroundColor: colors.elevated }}>
-                    <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid }]} numberOfLines={1}>
-                      {item.caption}
-                    </Text>
-                  </View>
-                )}
+        {/* Hero section */}
+        <View style={s.heroSection}>
+          <View style={s.avatarRow}>
+            {/* Avatar */}
+            <View style={s.avatar}>
+              {tailor.avatarUrl != null ? (
+                <Image source={{ uri: tailor.avatarUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+              ) : (
+                <Text style={s.avatarText}>{initials}</Text>
+              )}
+            </View>
+
+            {/* Name + badges */}
+            <View style={s.nameBlock}>
+              <Text style={s.nameText}>{tailor.name}</Text>
+
+              <View style={[s.tierBadge, { backgroundColor: tierColors.bg }]}>
+                <Text style={[s.tierText, { color: tierColors.text }]}>
+                  {tailor.tier.toUpperCase()}
+                </Text>
               </View>
-            ))}
+
+              {tailor.isVerified && (
+                <View style={s.verifiedBadge}>
+                  <Text style={s.verifiedText}>✓ Verified</Text>
+                </View>
+              )}
+            </View>
           </View>
+
+          {/* City */}
+          <View style={s.cityRow}>
+            <IconSymbol name="location.fill" size={12} color={colors.textLow} />
+            <Text style={s.cityText}>{tailor.city}</Text>
+          </View>
+
+          {/* Rating */}
+          <View style={s.ratingRow}>
+            {[1, 2, 3, 4, 5].map(i => (
+              <IconSymbol
+                key={i}
+                name={i <= Math.round(tailor.rating) ? 'star.fill' : 'star'}
+                size={13}
+                color={i <= Math.round(tailor.rating) ? '#F59E0B' : colors.textLow}
+              />
+            ))}
+            <Text style={s.ratingText}>
+              {tailor.rating.toFixed(1)} · {tailor.reviewCount} reviews
+            </Text>
+          </View>
+
+          {/* Availability */}
+          <View style={{ marginTop: sp.sm }}>
+            <AvailabilityDot available={tailor.isAvailable} />
+          </View>
+        </View>
+
+        {/* Quick stats row */}
+        <View style={s.statsRow}>
+          <View style={s.statCard}>
+            <Text style={s.statValue}>{tailor.completedOrders}</Text>
+            <Text style={s.statLabel}>Orders Done</Text>
+          </View>
+          <View style={s.statCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+              <IconSymbol name="star.fill" size={12} color="#F59E0B" />
+              <Text style={s.statValue}>{tailor.rating.toFixed(1)}</Text>
+            </View>
+            <Text style={s.statLabel}>Rating</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={s.statValue}>{tailor.turnaroundDays}d</Text>
+            <Text style={s.statLabel}>Turnaround</Text>
+          </View>
+          <View style={s.statCard}>
+            <Text style={[s.statValue, { fontSize: 14 }]}>{formatPkr(tailor.startingPrice)}</Text>
+            <Text style={s.statLabel}>Starting From</Text>
+          </View>
+        </View>
+
+        <View style={s.divider} />
+
+        {/* Specialties */}
+        {tailor.specialties.length > 0 && (
+          <>
+            <Text style={s.sectionHeader}>SPECIALTIES</Text>
+            <View style={s.specialtiesRow}>
+              {tailor.specialties.map(spec => (
+                <View key={spec} style={s.specialtyChip}>
+                  <Text style={s.specialtyText}>{spec}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={s.divider} />
+          </>
         )}
 
-        {/* Pricing */}
-        {activeTab === 'pricing' && (
-          <View style={{ padding: sp.base }}>
-            {tailor.categoryPricing && tailor.categoryPricing.length > 0 ? (
-              <View style={[{ backgroundColor: colors.elevated, borderRadius: r.md, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }]}>
-                {tailor.categoryPricing.map((item, idx) => (
-                  <View key={item.garmentCategoryId} style={[styles.priceRow, {
-                    borderBottomWidth: idx < tailor.categoryPricing!.length - 1 ? 1 : 0,
-                    borderBottomColor: colors.border,
-                    paddingHorizontal: sp.base,
-                    paddingVertical: sp.md,
-                    backgroundColor: idx % 2 === 0 ? colors.elevated : colors.panel,
-                  }]}>
-                    <Text style={[typo.scale.body, { fontFamily: typo.fonts.sans, color: colors.textHigh }]}>
-                      {item.garmentCategorySlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                    </Text>
-                    <Text style={[typo.scale.price, { fontFamily: typo.fonts.sansBold, color: colors.accent }]}>
-                      PKR {item.price.toLocaleString('en-PK')}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, textAlign: 'center', paddingVertical: sp['3xl'] }]}>
-                No pricing info available.
-              </Text>
+        {/* Portfolio */}
+        {portfolioImages.length > 0 && (
+          <>
+            <Text style={s.sectionHeader}>PORTFOLIO</Text>
+            <FlatList
+              data={portfolioImages}
+              horizontal
+              keyExtractor={(item, idx) => `${item}-${idx}`}
+              renderItem={renderPortfolioItem}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: sp.base,
+                gap: sp.sm,
+                paddingBottom: sp.sm,
+              }}
+              style={s.portfolioList}
+            />
+            <View style={s.divider} />
+          </>
+        )}
+
+        {/* Bio */}
+        {tailor.bio != null && tailor.bio.length > 0 && (
+          <View style={s.bioSection}>
+            <Text style={s.bioTitle}>ABOUT</Text>
+            <Text
+              style={s.bioText}
+              numberOfLines={bioExpanded ? undefined : 4}
+            >
+              {tailor.bio}
+            </Text>
+            {tailor.bio.length > 180 && (
+              <Pressable onPress={handleToggleBio}>
+                <Text style={s.bioToggle}>{bioExpanded ? 'Show less' : 'Read more'}</Text>
+              </Pressable>
             )}
           </View>
         )}
-
-        {/* Reviews */}
-        {activeTab === 'reviews' && (
-          <View style={[styles.centered, { paddingVertical: sp['3xl'] }]}>
-            <IconSymbol name="star" size={40} color={colors.textLow} />
-            <Text style={[typo.scale.body, { color: colors.textMid, fontFamily: typo.fonts.sans, marginTop: sp.md, textAlign: 'center' }]}>
-              No reviews yet.{'\n'}Be the first to book and review!
-            </Text>
-          </View>
-        )}
       </ScrollView>
+
+      {/* Sticky Book CTA */}
+      <View style={[s.stickyBar, { paddingBottom: sp.base + insets.bottom }]}>
+        <Pressable onPress={handleBookTailor} style={s.bookBtn}>
+          <Text style={s.bookBtnText}>Book This Tailor</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  header: { borderBottomWidth: 1 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  profileCard: {},
-  avatarRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
-  bigAvatar: { alignItems: 'center', justifyContent: 'center' },
-  profileNameBlock: { flex: 1 },
-  availRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  availDot: { width: 7, height: 7, borderRadius: 3.5 },
-  cityRow: { flexDirection: 'row', alignItems: 'center' },
-  statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  statItem: { alignItems: 'center', gap: 4 },
-  starsRow: { flexDirection: 'row' },
-  statDivider: { width: 1, height: 36 },
-  specRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  bookBtn: {},
-  tabBar: { flexDirection: 'row' },
-  tabItem: { flex: 1, alignItems: 'center' },
-  portfolioGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  portfolioItem: { marginBottom: PORTFOLIO_GAP },
-  priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-});

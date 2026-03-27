@@ -19,31 +19,35 @@ interface RefreshPayload {
 }
 
 export const authApi = api.injectEndpoints({
-  endpoints: build => ({
+  endpoints: (build) => ({
     mobileLogin: build.mutation<AuthPayload, { phone: string; password: string }>({
-      query: body => ({ url: '/auth/mobile/login', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/mobile/login', method: 'POST', body }),
       transformResponse: (res: ApiResponse<AuthPayload>) => res.data,
     }),
+
     mobileRegister: build.mutation<
       AuthPayload,
-      { name: string; phone: string; password: string; role: 'customer' | 'tailor' | 'seller' }
+      { name: string; phone: string; password: string; role: 'customer' | 'seller' | 'tailor' }
     >({
-      query: body => ({ url: '/auth/mobile/register', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/mobile/register', method: 'POST', body }),
       transformResponse: (res: ApiResponse<AuthPayload>) => res.data,
     }),
-    mobileRefresh: build.mutation<RefreshPayload, { refreshToken: string }>({
-      query: body => ({ url: '/auth/mobile/refresh', method: 'POST', body }),
+
+    refreshToken: build.mutation<RefreshPayload, { refreshToken: string }>({
+      query: (body) => ({ url: '/auth/mobile/refresh', method: 'POST', body }),
       transformResponse: (res: ApiResponse<RefreshPayload>) => res.data,
     }),
-    mobileLogout: build.mutation<void, { refreshToken: string }>({
-      query: body => ({ url: '/auth/mobile/logout', method: 'POST', body }),
+
+    logout: build.mutation<void, void>({
+      query: () => ({ url: '/auth/logout', method: 'POST' }),
     }),
   }),
+  overrideExisting: false,
 });
 
 export const {
   useMobileLoginMutation,
   useMobileRegisterMutation,
-  useMobileRefreshMutation,
-  useMobileLogoutMutation,
+  useRefreshTokenMutation,
+  useLogoutMutation,
 } = authApi;

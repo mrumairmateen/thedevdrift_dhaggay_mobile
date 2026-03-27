@@ -1,13 +1,15 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { useTheme } from '@shared/theme';
 import { openAuthSheet } from '@store/authSlice';
 import { useAppDispatch, useAppSelector } from '@store/index';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AccountScreen() {
   const { colors, sp, r, typo, elev } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const user = useAppSelector((s) => s.auth.user);
 

@@ -1,4 +1,5 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
+import { DashboardTabBar } from '@shared/components/DashboardTabBar';
 import { useTheme } from '@shared/theme';
 import { useAppSelector } from '@store/index';
 import { Tabs } from 'expo-router';
@@ -16,26 +17,8 @@ export default function DashboardLayout() {
 
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: colors.navSolid,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 56 + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: sp.xs,
-          elevation: 0,
-        },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textLow,
-        tabBarLabelStyle: {
-          ...typo.scale.label,
-          fontSize: 10,
-          marginTop: 2,
-        },
-        tabBarIconStyle: { marginBottom: 0 },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <DashboardTabBar {...props} />}
     >
       <Tabs.Screen
         name="index"
@@ -52,6 +35,15 @@ export default function DashboardLayout() {
           title: 'Orders',
           tabBarIcon: ({ color }) => (
             <IconSymbol name="shippingbox.fill" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="measurements"
+        options={{
+          title: 'Measures',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="ruler" size={22} color={color} />
           ),
         }}
       />

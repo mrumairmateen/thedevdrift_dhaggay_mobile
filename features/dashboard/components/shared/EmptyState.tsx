@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { useTheme } from '@shared/theme';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 

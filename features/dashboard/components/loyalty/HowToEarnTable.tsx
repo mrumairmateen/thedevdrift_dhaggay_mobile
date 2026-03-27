@@ -6,17 +6,37 @@ interface Props {
   rules: EarnRule[];
 }
 
-export function HowToEarnTable({ rules }: Props) {
+export function HowToEarnTable({ rules }: Props): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
 
+  const styles = StyleSheet.create({
+    card: {
+      borderWidth: 1,
+      overflow: 'hidden',
+      backgroundColor: colors.elevated,
+      borderColor: colors.border,
+      borderRadius: r.lg,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    label: {
+      ...typo.scale.body,
+      fontFamily: typo.fonts.serifBold,
+      color: colors.textHigh,
+      flex: 1,
+    },
+    pts: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.accent,
+    },
+  });
+
   return (
-    <View
-      style={[
-        styles.card,
-        elev.low,
-        { backgroundColor: colors.elevated, borderColor: colors.border, borderRadius: r.lg },
-      ]}
-    >
+    <View style={[styles.card, elev.low]}>
       {rules.map((rule, idx) => (
         <View
           key={rule.action}
@@ -30,26 +50,10 @@ export function HowToEarnTable({ rules }: Props) {
             },
           ]}
         >
-          <Text
-            style={[typo.scale.body, { fontFamily: typo.fonts.serifBold, color: colors.textHigh, flex: 1 }]}
-          >
-            {rule.description}
-          </Text>
-          <Text
-            style={[
-              typo.scale.bodySmall,
-              { fontFamily: typo.fonts.sansBold, color: colors.accent },
-            ]}
-          >
-            +{rule.points} pts
-          </Text>
+          <Text style={styles.label}>{rule.description}</Text>
+          <Text style={styles.pts}>+{rule.points} pts</Text>
         </View>
       ))}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { borderWidth: 1, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-});

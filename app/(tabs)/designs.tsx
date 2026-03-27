@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import type { Design, DesignSort } from '@features/designs/designs.types';
 import { useGetDesignsQuery } from '@services/designsApi';
 import { useTheme } from '@shared/theme';

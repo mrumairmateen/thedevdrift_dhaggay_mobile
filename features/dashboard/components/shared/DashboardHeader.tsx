@@ -1,4 +1,5 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import React from 'react';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { useTheme } from '@shared/theme';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -7,13 +8,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface Props {
   title: string;
   showBack?: boolean;
+  /** Rendered in the right slot. If omitted and onSignOut is set, a sign-out icon appears. */
   rightElement?: React.ReactNode;
+  /** When provided, renders a sign-out icon button in the right slot (ignored if rightElement is set). */
+  onSignOut?: () => void;
 }
 
-export function DashboardHeader({ title, showBack = true, rightElement }: Props) {
+export function DashboardHeader({ title, showBack = true, rightElement, onSignOut }: Props) {
   const { colors, sp, typo, elev } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const rightSlot = rightElement ?? (
+    onSignOut !== undefined ? (
+      <Pressable onPress={onSignOut} hitSlop={10} style={styles.signOutBtn}>
+        <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={colors.textMid} />
+      </Pressable>
+    ) : null
+  );
 
   return (
     <View
@@ -45,7 +57,7 @@ export function DashboardHeader({ title, showBack = true, rightElement }: Props)
       </Text>
 
       <View style={[styles.side, { alignItems: 'flex-end' }]}>
-        {rightElement ?? null}
+        {rightSlot}
       </View>
     </View>
   );
@@ -59,4 +71,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   side: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 72 },
+  signOutBtn: { padding: 4 },
 });

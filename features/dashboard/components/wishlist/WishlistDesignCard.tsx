@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import type { WishlistDesign } from '@features/dashboard/dashboard.types';
 import { useTheme } from '@shared/theme';
 import { useToggleDesignWishlistMutation } from '@services/wishlistApi';
@@ -13,7 +13,7 @@ export function WishlistDesignCard({ design }: Props) {
   const [removeFromWishlist] = useToggleDesignWishlistMutation();
 
   const handleRemove = () => {
-    removeFromWishlist({ designId: design._id, action: 'remove' });
+    removeFromWishlist(design._id);
   };
 
   return (

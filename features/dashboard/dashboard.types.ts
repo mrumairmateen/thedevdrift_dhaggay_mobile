@@ -1,55 +1,104 @@
-// ─── Order Status Pipeline ────────────────────────────────────────────────────
+// ─── Order Status Pipeline (16-status) ───────────────────────────────────────
 
 export type OrderStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'fabric_sourced'
-  | 'in_production'
-  | 'quality_check'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'cancelled';
+  | 'placed'
+  | 'accepted_by_seller'
+  | 'ready_to_dispatch_to_tailor'
+  | 'dispatching_to_tailor'
+  | 'delivered_to_tailor'
+  | 'tailor_working'
+  | 'ready_for_customer_delivery'
+  | 'dispatching_to_customer'
+  | 'delivered_to_customer'
+  | 'finding_replacement_tailor'
+  | 'disputed'
+  | 'cancelled_by_customer'
+  | 'cancelled_by_seller'
+  | 'cancelled_by_tailor'
+  | 'cancelled_by_admin'
+  | 'cancelled_post_dispute';
 
 export interface OrderStep {
-  key: OrderStatus;
-  label: string;
-  completedAt: string | null;
+  status: OrderStatus;
+  changedAt: string;
+  changedBy?: string;
+  note?: string;
 }
 
+/** Ordered forward pipeline steps (excludes terminal/special statuses) */
 export const ORDER_STEPS: OrderStatus[] = [
-  'pending',
-  'confirmed',
-  'fabric_sourced',
-  'in_production',
-  'quality_check',
-  'out_for_delivery',
-  'delivered',
+  'placed',
+  'accepted_by_seller',
+  'ready_to_dispatch_to_tailor',
+  'dispatching_to_tailor',
+  'delivered_to_tailor',
+  'tailor_working',
+  'ready_for_customer_delivery',
+  'dispatching_to_customer',
+  'delivered_to_customer',
 ];
 
 export const ORDER_STEP_LABELS: Record<OrderStatus, string> = {
-  pending: 'Placed',
-  confirmed: 'Confirmed',
-  fabric_sourced: 'Fabric Ready',
-  in_production: 'Tailoring',
-  quality_check: 'QC',
-  out_for_delivery: 'On the Way',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
+  placed: 'Order Placed',
+  accepted_by_seller: 'Accepted by Seller',
+  ready_to_dispatch_to_tailor: 'Ready to Dispatch',
+  dispatching_to_tailor: 'Dispatching to Tailor',
+  delivered_to_tailor: 'Delivered to Tailor',
+  tailor_working: 'Tailor Working',
+  ready_for_customer_delivery: 'Ready for Delivery',
+  dispatching_to_customer: 'Out for Delivery',
+  delivered_to_customer: 'Delivered',
+  finding_replacement_tailor: 'Finding Tailor',
+  disputed: 'Disputed',
+  cancelled_by_customer: 'Cancelled',
+  cancelled_by_seller: 'Cancelled by Seller',
+  cancelled_by_tailor: 'Cancelled by Tailor',
+  cancelled_by_admin: 'Cancelled by Admin',
+  cancelled_post_dispute: 'Cancelled (Dispute)',
 };
+
+/** Terminal statuses where the order lifecycle has ended */
+export const TERMINAL_STATUSES: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
+  'delivered_to_customer',
+  'cancelled_by_customer',
+  'cancelled_by_seller',
+  'cancelled_by_tailor',
+  'cancelled_by_admin',
+  'cancelled_post_dispute',
+]);
+
+/** Returns true if a status is a cancellation */
+export function isCancelledStatus(status: OrderStatus): boolean {
+  return (
+    status === 'cancelled_by_customer' ||
+    status === 'cancelled_by_seller' ||
+    status === 'cancelled_by_tailor' ||
+    status === 'cancelled_by_admin' ||
+    status === 'cancelled_post_dispute'
+  );
+}
 
 // Status → design-system token keys (resolved via colors[key] at render time)
 export const STATUS_COLOR_TOKENS: Record<
   OrderStatus,
   { bg: string; text: string }
 > = {
-  pending: { bg: 'warningSubtle', text: 'warning' },
-  confirmed: { bg: 'infoSubtle', text: 'info' },
-  fabric_sourced: { bg: 'infoSubtle', text: 'info' },
-  in_production: { bg: 'accentSubtle', text: 'accent' },
-  quality_check: { bg: 'accentSubtle', text: 'accent' },
-  out_for_delivery: { bg: 'accentSubtle', text: 'accent' },
-  delivered: { bg: 'successSubtle', text: 'success' },
-  cancelled: { bg: 'errorSubtle', text: 'error' },
+  placed: { bg: 'warningSubtle', text: 'warning' },
+  accepted_by_seller: { bg: 'infoSubtle', text: 'info' },
+  ready_to_dispatch_to_tailor: { bg: 'infoSubtle', text: 'info' },
+  dispatching_to_tailor: { bg: 'accentSubtle', text: 'accent' },
+  delivered_to_tailor: { bg: 'accentSubtle', text: 'accent' },
+  tailor_working: { bg: 'accentSubtle', text: 'accent' },
+  ready_for_customer_delivery: { bg: 'accentSubtle', text: 'accent' },
+  dispatching_to_customer: { bg: 'accentSubtle', text: 'accent' },
+  delivered_to_customer: { bg: 'successSubtle', text: 'success' },
+  finding_replacement_tailor: { bg: 'warningSubtle', text: 'warning' },
+  disputed: { bg: 'errorSubtle', text: 'error' },
+  cancelled_by_customer: { bg: 'errorSubtle', text: 'error' },
+  cancelled_by_seller: { bg: 'errorSubtle', text: 'error' },
+  cancelled_by_tailor: { bg: 'errorSubtle', text: 'error' },
+  cancelled_by_admin: { bg: 'errorSubtle', text: 'error' },
+  cancelled_post_dispute: { bg: 'errorSubtle', text: 'error' },
 };
 
 // ─── Dashboard Home ───────────────────────────────────────────────────────────
@@ -67,7 +116,7 @@ export interface ActiveOrder {
   productTitle: string;
   productImage: string | null;
   status: OrderStatus;
-  currentStep: number; // 0–6
+  statusHistory: OrderStep[];
   estimatedDelivery: string | null;
   totalAmount: number;
 }
@@ -116,8 +165,7 @@ export interface Order {
   product: OrderProduct;
   tailor: OrderTailor | null;
   status: OrderStatus;
-  currentStep: number;
-  steps: OrderStep[];
+  statusHistory: OrderStep[];
   totalAmount: number;
   currency: 'PKR';
   placedAt: string;
@@ -213,9 +261,9 @@ export interface WishlistData {
 // ─── User / Settings ─────────────────────────────────────────────────────────
 
 export interface NotificationPrefs {
-  orderUpdates: boolean;
-  promotions: boolean;
-  wishlistAlerts: boolean;
+  whatsapp: boolean;
+  email: boolean;
+  push: boolean;
 }
 
 export interface UserProfile {

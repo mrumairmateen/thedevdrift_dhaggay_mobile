@@ -1,19 +1,47 @@
-import { ORDER_STEP_LABELS, ORDER_STEPS, type OrderStatus } from '@features/dashboard/dashboard.types';
+import {
+  isCancelledStatus,
+  ORDER_STEP_LABELS,
+  ORDER_STEPS,
+  type OrderStatus,
+  type OrderStep,
+} from '@features/dashboard/dashboard.types';
 import { useTheme } from '@shared/theme';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface Props {
-  currentStep: number; // 0–6
-  cancelledAt?: number; // step index where order was cancelled, if applicable
+  /** Full status history from the API — used to determine completed steps */
+  statusHistory: OrderStep[];
   status: OrderStatus;
 }
 
 const STEP_SIZE = 22;
 const LINE_WIDTH = 20;
 
-export function OrderProgressBar({ currentStep, status, cancelledAt }: Props) {
+/**
+ * Returns the set of statuses that appear in the history array.
+ * The last entry is the current status.
+ */
+function buildCompletedSet(history: OrderStep[]): Set<OrderStatus> {
+  const set = new Set<OrderStatus>();
+  for (const entry of history) {
+    set.add(entry.status);
+  }
+  return set;
+}
+
+export function OrderProgressBar({ statusHistory, status }: Props): React.JSX.Element {
   const { colors, sp, r, typo } = useTheme();
-  const isCancelled = status === 'cancelled';
+  const isCancelled = isCancelledStatus(status);
+  const completedStatuses = buildCompletedSet(statusHistory);
+
+  // All statuses that should appear in the timeline: pipeline steps that
+  // have been reached OR the special/terminal current status if not in ORDER_STEPS
+  const timelineSteps: OrderStatus[] = [...ORDER_STEPS];
+
+  // If the order has a special status not in the main pipeline, append it
+  if (!ORDER_STEPS.includes(status) && status !== 'delivered_to_customer') {
+    timelineSteps.push(status);
+  }
 
   return (
     <ScrollView
@@ -21,16 +49,24 @@ export function OrderProgressBar({ currentStep, status, cancelledAt }: Props) {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={[styles.container, { paddingHorizontal: sp.base, paddingVertical: sp.sm }]}
     >
-      {ORDER_STEPS.map((stepKey, idx) => {
-        const isCompleted = !isCancelled && idx < currentStep;
-        const isCurrent = !isCancelled && idx === currentStep;
-        const isLast = idx === ORDER_STEPS.length - 1;
+      {timelineSteps.map((stepKey, idx) => {
+        const isReached = completedStatuses.has(stepKey);
+        const isCurrent = stepKey === status;
+        const isLast = idx === timelineSteps.length - 1;
 
         let circleColor = colors.panel;
         let borderColor = colors.border;
         let textColor = colors.textLow;
 
-        if (isCompleted) {
+        if (isCancelled && isCurrent) {
+          circleColor = colors.errorSubtle;
+          borderColor = colors.error;
+          textColor = colors.error;
+        } else if (status === 'disputed' && isCurrent) {
+          circleColor = colors.errorSubtle;
+          borderColor = colors.error;
+          textColor = colors.error;
+        } else if (isReached && !isCurrent) {
           circleColor = colors.accent;
           borderColor = colors.accent;
           textColor = colors.accent;
@@ -57,16 +93,16 @@ export function OrderProgressBar({ currentStep, status, cancelledAt }: Props) {
                   },
                 ]}
               >
-                {isCompleted && (
+                {isReached && !isCurrent && (
                   <Text style={{ fontSize: 10, color: colors.textOnAccent }}>✓</Text>
                 )}
-                {isCurrent && !isCompleted && (
+                {isCurrent && !isReached && (
                   <View
                     style={{
                       width: 8,
                       height: 8,
                       borderRadius: r.pill,
-                      backgroundColor: colors.accent,
+                      backgroundColor: isCancelled || status === 'disputed' ? colors.error : colors.accent,
                     }}
                   />
                 )}
@@ -78,7 +114,7 @@ export function OrderProgressBar({ currentStep, status, cancelledAt }: Props) {
                     styles.line,
                     {
                       width: LINE_WIDTH,
-                      backgroundColor: isCompleted ? colors.accent : colors.border,
+                      backgroundColor: isReached ? colors.accent : colors.border,
                     },
                   ]}
                 />
@@ -96,9 +132,9 @@ export function OrderProgressBar({ currentStep, status, cancelledAt }: Props) {
                   maxWidth: STEP_SIZE + LINE_WIDTH,
                 },
               ]}
-              numberOfLines={1}
+              numberOfLines={2}
             >
-              {ORDER_STEP_LABELS[stepKey as OrderStatus]}
+              {ORDER_STEP_LABELS[stepKey]}
             </Text>
           </View>
         );

@@ -1,185 +1,227 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import type { Tailor } from '@features/tailors/tailors.types';
-import { useGetTailorsQuery } from '@services/tailorsApi';
-import { useTheme } from '@shared/theme';
+import React, { useCallback } from 'react';
+import { FlatList, ListRenderItem, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const AVATAR_COLORS = ['#1A6B3C', '#6D28D9', '#B45309', '#0369A1', '#9D174D', '#BE123C'];
-function getInitials(name: string) {
-  return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?';
-}
-function getAvatarColor(id: string) {
-  const sum = id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
-}
+import { useTheme } from '@shared/theme';
+import { formatPkr } from '@shared/utils';
 
-function TailorSkeleton() {
-  const { colors, r, sp } = useTheme();
-  return (
-    <View style={[{ width: 232, borderRadius: r.lg, backgroundColor: colors.elevated, borderWidth: 1, borderColor: colors.border, padding: sp.base }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: sp.md }}>
-        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.panel }} />
-        <View style={{ flex: 1, gap: sp.xs }}>
-          <View style={{ height: 14, width: '70%', backgroundColor: colors.panel, borderRadius: r.sharp }} />
-          <View style={{ height: 10, width: '50%', backgroundColor: colors.panel, borderRadius: r.sharp }} />
-        </View>
-      </View>
-      <View style={{ height: 10, width: '40%', backgroundColor: colors.panel, borderRadius: r.sharp, marginBottom: sp.sm }} />
-      <View style={{ height: 10, width: '60%', backgroundColor: colors.panel, borderRadius: r.sharp, marginBottom: sp.md }} />
-      <View style={{ height: 36, backgroundColor: colors.panel, borderRadius: r.pill }} />
-    </View>
-  );
+export interface FeaturedTailorsProps {}
+
+type TailorTier = 'Master' | 'Premium' | 'Standard';
+
+interface TailorFixture {
+  _id: string;
+  slug: string;
+  name: string;
+  city: string;
+  tier: TailorTier;
+  rating: number;
+  reviewCount: number;
+  completedOrders: number;
+  startingPrice: number;
+  isAvailable: boolean;
 }
 
-function TailorCard({ tailor }: { tailor: Tailor }) {
+const TAILOR_FIXTURES: TailorFixture[] = [
+  { _id: '1', slug: 'ustad-ibrahim', name: 'Ustad Ibrahim', city: 'Lahore',    tier: 'Master',   rating: 4.9, reviewCount: 312, completedOrders: 847, startingPrice: 2500, isAvailable: true  },
+  { _id: '2', slug: 'nazim-bhai',    name: 'Nazim Bhai',    city: 'Karachi',   tier: 'Premium',  rating: 4.8, reviewCount: 198, completedOrders: 423, startingPrice: 1800, isAvailable: true  },
+  { _id: '3', slug: 'ahmed-tailor',  name: 'Ahmed Master',  city: 'Islamabad', tier: 'Master',   rating: 4.9, reviewCount: 276, completedOrders: 612, startingPrice: 3000, isAvailable: false },
+];
+
+function getInitials(name: string): string {
+  const parts = name.split(' ');
+  const first = parts[0];
+  const second = parts[1];
+  const a = first !== undefined ? (first[0] ?? '') : '';
+  const b = second !== undefined ? (second[0] ?? '') : '';
+  return (a + b).toUpperCase() || '?';
+}
+
+interface TailorCardProps {
+  tailor: TailorFixture;
+  onPress: (slug: string) => void;
+}
+
+const TailorCard = React.memo(function TailorCard({
+  tailor,
+  onPress,
+}: TailorCardProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const router = useRouter();
-  const stars = Math.round(tailor.rating);
 
   const tierBg =
-    tailor.tier === 'master'  ? colors.warning :
-    tailor.tier === 'premium' ? colors.accent  :
-    colors.chipBg;
-  const tierText = tailor.tier === 'standard' ? colors.textMid : colors.textOnAccent;
+    tailor.tier === 'Master'
+      ? colors.accent
+      : tailor.tier === 'Premium'
+      ? colors.info
+      : colors.border;
 
-  const name = typeof tailor.userId === 'object' && tailor.userId !== null ? tailor.userId.name : 'Unknown';
-  const initials = getInitials(name);
-  const avatarColor = getAvatarColor(tailor._id);
-  const city = tailor.serviceAreas[0]?.city ?? '';
-  const startingPrice = tailor.categoryPricing?.[0]?.price ?? 0;
+  const tierTextColor =
+    tailor.tier === 'Standard' ? colors.textMid : colors.textOnAccent;
+
+  const styles = StyleSheet.create({
+    card: {
+      width: 200,
+      backgroundColor: colors.elevated,
+      borderRadius: r.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: sp.md,
+      ...elev.low,
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.sm,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: r.pill,
+      backgroundColor: colors.accentSubtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.accent,
+    },
+    nameBlock: {
+      flex: 1,
+    },
+    name: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.serifBold,
+      color: colors.textHigh,
+      marginTop: sp.sm,
+    },
+    city: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+    },
+    tierBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: tierBg,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.xs,
+      paddingVertical: 2,
+      marginTop: sp.xs,
+    },
+    tierText: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: tierTextColor,
+    },
+    ratingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: sp.xs,
+    },
+    ratingText: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+    },
+    starText: {
+      ...typo.scale.caption,
+      color: colors.warning,
+    },
+    priceText: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.textHigh,
+      marginTop: sp.xs,
+    },
+    availRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.xs,
+      marginTop: sp.xs,
+    },
+    availDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    availText: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+    },
+  });
+
+  const handlePress = useCallback(() => {
+    onPress(tailor.slug);
+  }, [onPress, tailor.slug]);
+
+  const initials = getInitials(tailor.name);
+  const availColor = tailor.isAvailable ? colors.success : colors.error;
+  const availLabel = tailor.isAvailable ? 'Available' : 'Unavailable';
 
   return (
-    <Pressable
-      onPress={() => router.push(`/tailors/${tailor.slug || tailor._id}` as any)}
-      style={[
-        styles.card,
-        elev.low,
-        {
-          backgroundColor: colors.elevated,
-          borderColor: tailor.tier === 'master' ? colors.borderStrong : colors.border,
-          borderRadius: r.lg,
-          width: 232,
-          padding: sp.base,
-          borderWidth: tailor.tier === 'master' ? 1.5 : 1,
-        },
-      ]}
-    >
-      {/* Top row: avatar + name/city */}
-      <View style={[styles.topRow, { marginBottom: sp.md }]}>
-        <View style={[styles.avatar, { backgroundColor: avatarColor, borderRadius: r.pill, width: 48, height: 48 }]}>
-          <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansBold, color: '#fff' }]}>
-            {initials}
-          </Text>
-        </View>
-        <View style={styles.nameBlock}>
-          <Text style={[typo.scale.bodySmall, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]} numberOfLines={1}>
-            {name}
-          </Text>
-          <View style={styles.cityRow}>
-            <IconSymbol name="location.fill" size={10} color={colors.textLow} />
-            <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textLow }]}>
-              {' '}{city}
-            </Text>
-          </View>
+    <Pressable style={styles.card} onPress={handlePress}>
+      <View style={styles.topRow}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials}</Text>
         </View>
       </View>
-
-      {/* Tier badge + availability */}
-      <View style={[styles.midRow, { marginBottom: sp.md }]}>
-        <View style={[{ backgroundColor: tierBg, borderRadius: r.sharp, paddingHorizontal: sp.sm, paddingVertical: 3 }]}>
-          <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: tierText, fontSize: 10 }]}>
-            {tailor.tier.toUpperCase()}
-          </Text>
-        </View>
-        {tailor.isAvailable && (
-          <View style={styles.availRow}>
-            <View style={[styles.availDot, { backgroundColor: colors.success }]} />
-            <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sansMed, color: colors.success }]}>
-              Available
-            </Text>
-          </View>
-        )}
+      <Text style={styles.name}>{tailor.name}</Text>
+      <Text style={styles.city}>{tailor.city}</Text>
+      <View style={styles.tierBadge}>
+        <Text style={styles.tierText}>{tailor.tier}</Text>
       </View>
-
-      {/* Rating */}
-      <View style={[styles.ratingRow, { marginBottom: sp.xs }]}>
-        {[1, 2, 3, 4, 5].map(i => (
-          <Text key={i} style={{ fontSize: 11, color: i <= stars ? colors.warning : colors.border }}>★</Text>
-        ))}
-        <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid, marginLeft: 4 }]}>
-          {tailor.rating.toFixed(1)} · {tailor.reviewCount} reviews
+      <View style={styles.ratingRow}>
+        <Text style={styles.starText}>{'★'}</Text>
+        <Text style={styles.ratingText}>
+          {` ${tailor.rating.toFixed(1)} · ${tailor.reviewCount} reviews`}
         </Text>
       </View>
-
-      {/* Completed orders */}
-      <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textLow, marginBottom: sp.md }]}>
-        {tailor.completedOrders} orders completed
-      </Text>
-
-      {/* Price + CTA */}
-      <View style={[styles.bottomRow, { borderTopColor: colors.border, paddingTop: sp.md }]}>
-        <View>
-          <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textLow }]}>Starting from</Text>
-          <Text style={[typo.scale.price, { fontFamily: typo.fonts.sansBold, color: colors.textHigh }]}>
-            {startingPrice > 0 ? `PKR ${startingPrice.toLocaleString('en-PK')}` : 'Contact'}
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => router.push(`/tailors/${tailor.slug || tailor._id}` as any)}
-          style={[{ backgroundColor: colors.accent, borderRadius: r.pill, paddingHorizontal: sp.md, paddingVertical: sp.sm }]}
-        >
-          <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: colors.textOnAccent }]}>VIEW</Text>
-        </Pressable>
+      <Text style={styles.priceText}>{`From ${formatPkr(tailor.startingPrice)}`}</Text>
+      <View style={styles.availRow}>
+        <View style={[styles.availDot, { backgroundColor: availColor }]} />
+        <Text style={[styles.availText, { color: availColor }]}>{availLabel}</Text>
       </View>
     </Pressable>
   );
-}
+});
 
-export function FeaturedTailors() {
-  const { sp, colors, typo } = useTheme();
-  const { data, isLoading, isError } = useGetTailorsQuery({ sort: 'rating', limit: 3 });
-  const tailors = data?.tailors ?? [];
+export const FeaturedTailors = React.memo(function FeaturedTailors(
+  _props: FeaturedTailorsProps,
+): React.JSX.Element {
+  const { sp } = useTheme();
+  const router = useRouter();
 
-  if (isLoading) {
-    return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.container, { paddingHorizontal: sp.base, gap: sp.md }]}>
-        {[0, 1, 2].map(i => <TailorSkeleton key={i} />)}
-      </ScrollView>
-    );
-  }
+  const styles = StyleSheet.create({
+    contentContainer: {
+      paddingHorizontal: sp.base,
+      gap: sp.md,
+    },
+  });
 
-  if (isError || tailors.length === 0) {
-    return (
-      <View style={{ paddingHorizontal: sp.base, paddingVertical: sp.xl, alignItems: 'center' }}>
-        <Text style={[typo.scale.bodySmall, { color: colors.textLow, fontFamily: typo.fonts.sans }]}>
-          {isError ? 'Could not load tailors.' : 'No tailors available.'}
-        </Text>
-      </View>
-    );
-  }
+  const handlePress = useCallback(
+    (slug: string) => {
+      router.push(`/tailors/${slug}` as Parameters<typeof router.push>[0]);
+    },
+    [router],
+  );
+
+  const renderItem = useCallback<ListRenderItem<TailorFixture>>(
+    ({ item }) => <TailorCard tailor={item} onPress={handlePress} />,
+    [handlePress],
+  );
+
+  const keyExtractor = useCallback((item: TailorFixture) => item._id, []);
 
   return (
-    <ScrollView
-      horizontal
+    <FlatList
+      data={TAILOR_FIXTURES}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+      horizontal={true}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[styles.container, { paddingHorizontal: sp.base, gap: sp.md }]}
-    >
-      {tailors.map(tailor => <TailorCard key={tailor._id} tailor={tailor} />)}
-    </ScrollView>
+      contentContainerStyle={styles.contentContainer}
+      removeClippedSubviews={true}
+    />
   );
-}
-
-const styles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'flex-start' },
-  card: {},
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { alignItems: 'center', justifyContent: 'center' },
-  nameBlock: { flex: 1, gap: 2 },
-  cityRow: { flexDirection: 'row', alignItems: 'center' },
-  midRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  availRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  availDot: { width: 6, height: 6, borderRadius: 3 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center' },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1 },
 });

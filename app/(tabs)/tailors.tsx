@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import type { Tailor, TailorSort } from '@features/tailors/tailors.types';
 import { useGetTailorsQuery } from '@services/tailorsApi';
 import { useTheme } from '@shared/theme';

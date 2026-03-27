@@ -1,47 +1,65 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useTheme } from '@shared/theme';
-import { Pressable, Text, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-interface Props {
-  label?: string;
+import { useTheme } from '@shared/theme';
+
+export interface SectionHeaderProps {
+  label: string;
   title: string;
   onSeeAll?: () => void;
 }
 
-export function SectionHeader({ label, title, onSeeAll }: Props) {
+export const SectionHeader = React.memo(function SectionHeader({
+  label,
+  title,
+  onSeeAll,
+}: SectionHeaderProps): React.JSX.Element {
   const { colors, sp, typo } = useTheme();
 
+  const styles = StyleSheet.create({
+    container: {
+      paddingHorizontal: sp.base,
+      paddingBottom: sp.md,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    label: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.accent,
+      marginBottom: sp.xs,
+    },
+    title: {
+      ...typo.scale.title2,
+      fontFamily: typo.fonts.serifBold,
+      color: colors.textHigh,
+      flex: 1,
+    },
+    seeAll: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.accent,
+    },
+  });
+
+  const handleSeeAll = useCallback(() => {
+    onSeeAll?.();
+  }, [onSeeAll]);
+
   return (
-    <View style={{ paddingHorizontal: sp.base, marginBottom: sp.md }}>
-      {label && (
-        <Text
-          style={[
-            typo.scale.label,
-            { fontFamily: typo.fonts.sansMed, color: colors.accent, marginBottom: sp.xs },
-          ]}
-        >
-          {label}
-        </Text>
-      )}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text
-          style={[typo.scale.title3, { fontFamily: typo.fonts.serifBold, color: colors.textHigh, flex: 1 }]}
-        >
-          {title}
-        </Text>
-        {onSeeAll && (
-          <Pressable
-            onPress={onSeeAll}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: sp.xs }}
-            hitSlop={8}
-          >
-            <Text style={[typo.scale.bodySmall, { fontFamily: typo.fonts.sansMed, color: colors.accent }]}>
-              See all
-            </Text>
-            <IconSymbol name="arrow.right" size={12} color={colors.accent} />
+    <View style={styles.container}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.row}>
+        <Text style={styles.title}>{title}</Text>
+        {onSeeAll !== undefined && (
+          <Pressable onPress={handleSeeAll} hitSlop={8}>
+            <Text style={styles.seeAll}>{'See All →'}</Text>
           </Pressable>
         )}
       </View>
     </View>
   );
-}
+});

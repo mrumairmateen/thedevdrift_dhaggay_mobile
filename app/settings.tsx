@@ -1,7 +1,5 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useTheme, useThemeControls } from '@shared/theme';
-import type { ColorScheme } from '@shared/theme';
 import { useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -12,75 +10,214 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SCHEMES: Array<{ value: ColorScheme; label: string; accentLight: string; accentDark: string }> = [
-  { value: 'cobalt', label: 'Cobalt', accentLight: '#1A4FCC', accentDark: '#5B8DEF' },
-  { value: 'jungle', label: 'Jungle', accentLight: '#1A6B3C', accentDark: '#3D9A60' },
-  { value: 'amethyst', label: 'Amethyst', accentLight: '#6D28D9', accentDark: '#8B5CF6' },
-];
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
+import { ScreenHeader } from '@shared/components/ui/ScreenHeader';
+import { useTheme, useThemeControls } from '@shared/theme';
+import type { ColorScheme } from '@shared/theme';
+import { useAppDispatch, useAppSelector } from '@store/index';
+import { openAuthSheet } from '@store/authSlice';
 
-export default function SettingsScreen() {
+// Color swatch hex values are legitimate UI data — they ARE the swatches, not style tokens.
+const COLOR_SCHEMES: ReadonlyArray<{
+  value: ColorScheme;
+  label: string;
+  hex: string;
+}> = [
+  { value: 'cobalt',    label: 'Cobalt',    hex: '#1E4FCC' },
+  { value: 'jungle',    label: 'Jungle',    hex: '#1A6B3C' },
+  { value: 'amethyst',  label: 'Amethyst',  hex: '#6D28D9' },
+] as const;
+
+export default function SettingsScreen(): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
   const { scheme, mode, setScheme, toggleMode } = useThemeControls();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const dispatch = useAppDispatch();
+
+  const user = useAppSelector(s => s.auth.user);
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const handleSignIn = useCallback(() => {
+    dispatch(openAuthSheet('login'));
+  }, [dispatch]);
+
+  const handleDashboard = useCallback(() => {
+    router.push('/(dashboard)' as never);
+  }, [router]);
+
+  const handlePrivacyPolicy = useCallback(() => {
+    router.push('/modal' as never);
+  }, [router]);
+
+  const handleTerms = useCallback(() => {
+    router.push('/modal' as never);
+  }, [router]);
+
+  const handleScheme = useCallback((s: ColorScheme) => {
+    setScheme(s);
+  }, [setScheme]);
+
+  const styles = StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    scrollContent: {
+      paddingBottom: insets.bottom + sp['4xl'],
+    },
+    // ── Section header ───────────────────────────────────────────────────
+    sectionLabel: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textLow,
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.sm,
+      backgroundColor: colors.surface,
+    },
+    // ── Settings rows ────────────────────────────────────────────────────
+    settingsCard: {
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: r.lg,
+      marginHorizontal: sp.base,
+      overflow: 'hidden',
+      ...elev.low,
+    },
+    settingsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.elevated,
+    },
+    settingsRowLast: {
+      borderBottomWidth: 0,
+    },
+    rowLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    rowIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: r.sm,
+      backgroundColor: colors.accentSubtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: sp.md,
+    },
+    rowLabel: {
+      ...typo.scale.body,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textHigh,
+    },
+    rowSublabel: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textLow,
+    },
+    rowValueText: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sans,
+      color: colors.textLow,
+    },
+    // ── Scheme picker ────────────────────────────────────────────────────
+    schemePicker: {
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.md,
+      backgroundColor: colors.elevated,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    schemePickerLabel: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textHigh,
+      marginBottom: sp.md,
+    },
+    schemeSwatches: {
+      flexDirection: 'row',
+      gap: sp['2xl'],
+    },
+    swatchItem: {
+      alignItems: 'center',
+      gap: sp.xs,
+    },
+    swatchCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: r.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    swatchCheckmark: {
+      // checkmark icon rendered inside
+    },
+    swatchLabel: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textMid,
+    },
+    swatchLabelActive: {
+      color: colors.textHigh,
+    },
+    // ── Account rows ─────────────────────────────────────────────────────
+    phoneText: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sans,
+      color: colors.textLow,
+    },
+    signInLink: {
+      ...typo.scale.body,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.accent,
+    },
+    // ── Version ──────────────────────────────────────────────────────────
+    versionText: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sans,
+      color: colors.textLow,
+    },
+    spacer: {
+      height: sp.xl,
+    },
+  });
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-      {/* Header */}
-      <View style={[styles.header, elev.high, {
-        backgroundColor: colors.navSolid,
-        paddingTop: insets.top + sp.sm,
-        paddingHorizontal: sp.base,
-        paddingBottom: sp.md,
-        borderBottomColor: colors.border,
-      }]}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <IconSymbol name="chevron.left" size={20} color={colors.textHigh} />
-          <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansMed, color: colors.textHigh }]}>Back</Text>
-        </Pressable>
-        <Text style={[typo.scale.title3, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}>
-          Settings
-        </Text>
-        {/* spacer to centre title */}
-        <View style={{ width: 60 }} />
-      </View>
+    <View style={styles.screen}>
+      <ScreenHeader title="Settings" onBack={handleBack} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + sp['4xl'], paddingTop: sp.xl }}
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* Appearance section */}
-        <View style={[styles.sectionLabel, { paddingHorizontal: sp.base, marginBottom: sp.sm }]}>
-          <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansMed, color: colors.textLow, letterSpacing: 1.5 }]}>
-            APPEARANCE
-          </Text>
-        </View>
+        {/* ── Appearance ── */}
+        <View style={styles.spacer} />
+        <Text style={styles.sectionLabel}>APPEARANCE</Text>
 
-        <View style={[styles.card, elev.low, {
-          backgroundColor: colors.elevated,
-          borderColor: colors.border,
-          borderRadius: r.lg,
-          marginHorizontal: sp.base,
-          overflow: 'hidden',
-        }]}>
-          {/* Dark mode toggle row */}
-          <View style={[styles.row, {
-            paddingHorizontal: sp.base,
-            paddingVertical: sp.md,
-            borderBottomColor: colors.border,
-            borderBottomWidth: 1,
-          }]}>
+        <View style={styles.settingsCard}>
+          {/* Dark / Light mode toggle */}
+          <View style={styles.settingsRow}>
             <View style={styles.rowLeft}>
-              <IconSymbol
-                name={mode === 'dark' ? 'moon.stars.fill' : 'sun.max.fill'}
-                size={20}
-                color={colors.accent}
-              />
-              <View style={{ marginLeft: sp.md }}>
-                <Text style={[typo.scale.body, { fontFamily: typo.fonts.sansMed, color: colors.textHigh }]}>
-                  Dark Mode
-                </Text>
-                <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textLow }]}>
+              <View style={styles.rowIconWrap}>
+                <IconSymbol
+                  name={mode === 'dark' ? 'moon.stars.fill' : 'sun.max.fill'}
+                  size={18}
+                  color={colors.accent}
+                />
+              </View>
+              <View>
+                <Text style={styles.rowLabel}>Dark Mode</Text>
+                <Text style={styles.rowSublabel}>
                   {mode === 'dark' ? 'Currently dark' : 'Currently light'}
                 </Text>
               </View>
@@ -94,39 +231,32 @@ export default function SettingsScreen() {
           </View>
 
           {/* Colour scheme picker */}
-          <View style={[{
-            paddingHorizontal: sp.base,
-            paddingVertical: sp.md,
-          }]}>
-            <Text style={[typo.scale.bodySmall, { fontFamily: typo.fonts.sansMed, color: colors.textHigh, marginBottom: sp.md }]}>
-              Colour Scheme
-            </Text>
-            <View style={styles.schemePills}>
-              {SCHEMES.map(s => {
+          <View style={[styles.schemePicker, styles.settingsRowLast]}>
+            <Text style={styles.schemePickerLabel}>Colour Scheme</Text>
+            <View style={styles.schemeSwatches}>
+              {COLOR_SCHEMES.map(s => {
                 const active = s.value === scheme;
-                const accentColor = mode === 'dark' ? s.accentDark : s.accentLight;
                 return (
                   <Pressable
                     key={s.value}
-                    onPress={() => setScheme(s.value)}
-                    style={[styles.schemePill, {
-                      borderRadius: r.pill,
-                      borderWidth: active ? 2 : 1,
-                      borderColor: active ? accentColor : colors.border,
-                      paddingHorizontal: sp.lg,
-                      paddingVertical: sp.sm,
-                      backgroundColor: active ? accentColor + '22' : colors.chipBg,
-                    }]}
+                    style={styles.swatchItem}
+                    onPress={() => handleScheme(s.value)}
                   >
-                    {/* Color dot */}
-                    <View style={[styles.colorDot, {
-                      backgroundColor: accentColor,
-                      borderRadius: r.pill,
-                    }]} />
-                    <Text style={[typo.scale.bodySmall, {
-                      fontFamily: typo.fonts.sansMed,
-                      color: active ? accentColor : colors.textMid,
-                    }]}>
+                    <View
+                      style={[
+                        styles.swatchCircle,
+                        {
+                          backgroundColor: s.hex,
+                          borderWidth: active ? 3 : 2,
+                          borderColor: active ? colors.borderStrong : colors.border,
+                        },
+                      ]}
+                    >
+                      {active && (
+                        <IconSymbol name="checkmark.seal.fill" size={16} color={colors.textOnAccent} />
+                      )}
+                    </View>
+                    <Text style={[styles.swatchLabel, active && styles.swatchLabelActive]}>
                       {s.label}
                     </Text>
                   </Pressable>
@@ -136,54 +266,89 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* App info */}
-        <View style={[styles.sectionLabel, { paddingHorizontal: sp.base, marginBottom: sp.sm, marginTop: sp.xl }]}>
-          <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansMed, color: colors.textLow, letterSpacing: 1.5 }]}>
-            ABOUT
-          </Text>
+        {/* ── Account ── */}
+        <View style={styles.spacer} />
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
+
+        <View style={styles.settingsCard}>
+          {user !== null ? (
+            <>
+              <View style={styles.settingsRow}>
+                <View style={styles.rowLeft}>
+                  <View style={styles.rowIconWrap}>
+                    <IconSymbol name="person.fill" size={18} color={colors.accent} />
+                  </View>
+                  <View>
+                    <Text style={styles.rowLabel}>{user.name}</Text>
+                    <Text style={styles.phoneText}>{user.phone}</Text>
+                  </View>
+                </View>
+              </View>
+              <Pressable
+                style={[styles.settingsRow, styles.settingsRowLast]}
+                onPress={handleDashboard}
+              >
+                <View style={styles.rowLeft}>
+                  <View style={styles.rowIconWrap}>
+                    <IconSymbol name="chart.bar.fill" size={18} color={colors.accent} />
+                  </View>
+                  <Text style={styles.rowLabel}>Go to Dashboard</Text>
+                </View>
+                <IconSymbol name="chevron.right" size={14} color={colors.textLow} />
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              style={[styles.settingsRow, styles.settingsRowLast]}
+              onPress={handleSignIn}
+            >
+              <View style={styles.rowLeft}>
+                <View style={styles.rowIconWrap}>
+                  <IconSymbol name="person.fill" size={18} color={colors.accent} />
+                </View>
+                <Text style={styles.signInLink}>Sign In</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={14} color={colors.textLow} />
+            </Pressable>
+          )}
         </View>
-        <View style={[styles.card, elev.low, {
-          backgroundColor: colors.elevated,
-          borderColor: colors.border,
-          borderRadius: r.lg,
-          marginHorizontal: sp.base,
-          overflow: 'hidden',
-        }]}>
-          <View style={[styles.row, {
-            paddingHorizontal: sp.base,
-            paddingVertical: sp.md,
-          }]}>
-            <Text style={[typo.scale.body, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}>
-              Dhaggay
-            </Text>
-            <Text style={[typo.scale.bodySmall, { fontFamily: typo.fonts.sans, color: colors.textLow }]}>
-              v1.0.0
-            </Text>
+
+        {/* ── About ── */}
+        <View style={styles.spacer} />
+        <Text style={styles.sectionLabel}>ABOUT</Text>
+
+        <View style={styles.settingsCard}>
+          <View style={styles.settingsRow}>
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIconWrap}>
+                <IconSymbol name="sparkles" size={18} color={colors.accent} />
+              </View>
+              <Text style={styles.rowLabel}>Dhaggay</Text>
+            </View>
+            <Text style={styles.versionText}>v1.0.0</Text>
           </View>
+
+          <Pressable style={styles.settingsRow} onPress={handlePrivacyPolicy}>
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIconWrap}>
+                <IconSymbol name="doc.on.doc.fill" size={18} color={colors.accent} />
+              </View>
+              <Text style={styles.rowLabel}>Privacy Policy</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={14} color={colors.textLow} />
+          </Pressable>
+
+          <Pressable style={[styles.settingsRow, styles.settingsRowLast]} onPress={handleTerms}>
+            <View style={styles.rowLeft}>
+              <View style={styles.rowIconWrap}>
+                <IconSymbol name="doc.on.doc.fill" size={18} color={colors.accent} />
+              </View>
+              <Text style={styles.rowLabel}>Terms of Service</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={14} color={colors.textLow} />
+          </Pressable>
         </View>
       </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 60 },
-  sectionLabel: {},
-  card: { borderWidth: 1 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  schemePills: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  schemePill: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  colorDot: { width: 12, height: 12 },
-});

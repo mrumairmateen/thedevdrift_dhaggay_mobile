@@ -9,7 +9,8 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
  *  3. localhost fallback    — Expo Go / iOS simulator without Metro host info
  */
 function getBaseUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+  const apiUrl = process.env['EXPO_PUBLIC_API_URL'];
+  if (apiUrl) return apiUrl;
   const host = Constants.expoConfig?.hostUri?.split(':')[0] ?? 'localhost';
   return `http://${host}:3000/api/v1`;
 }
@@ -27,6 +28,6 @@ export const api = createApi({
       return headers;
     },
   }),
-  tagTypes: ['Product', 'Shop', 'Cart', 'Order', 'User', 'Tailor', 'Design', 'Auth', 'Loyalty', 'Wishlist'],
+  tagTypes: ['Product', 'Shop', 'Cart', 'Order', 'User', 'Tailor', 'Design', 'Auth', 'Loyalty', 'Wishlist', 'Measurement', 'SellerOrder', 'SellerProduct', 'SellerPromo', 'SellerReview', 'TailorOrder', 'TailorCalendar', 'AdminUser', 'AdminOrder', 'AdminDispute', 'DeliveryTask', 'AdminReview', 'AdminDesign', 'AdminPromo', 'AdminBanner'],
   endpoints: () => ({}),
 });

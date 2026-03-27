@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { CategoryRow } from '@features/home/components/CategoryRow';
 import { EidBanner } from '@features/home/components/EidBanner';
 import { FeaturedTailors } from '@features/home/components/FeaturedTailors';
@@ -29,11 +29,18 @@ export default function HomeScreen() {
   const dispatch = useAppDispatch();
   const user = useAppSelector(s => s.auth.user);
 
-  // Redirect to dashboard when user logs in from this screen
+  // Redirect to the role-appropriate dashboard when user logs in from this screen
   const prevUserRef = useRef(user);
   useEffect(() => {
     if (!prevUserRef.current && user) {
-      router.push('/(dashboard)' as any);
+      const roleRoutes: Record<string, string> = {
+        admin: '/(admin)',
+        seller: '/(seller)',
+        tailor: '/(tailor-dash)',
+        delivery: '/(delivery)',
+        customer: '/(dashboard)',
+      };
+      router.push((roleRoutes[user.role] ?? '/(dashboard)') as any);
     }
     prevUserRef.current = user;
   }, [user]);

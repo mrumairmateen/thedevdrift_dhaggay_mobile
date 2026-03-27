@@ -1,173 +1,316 @@
+import React, { useCallback } from 'react';
+import {
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+
+import { useGetCustomerDashboardQuery } from '@services/dashboardApi';
+import { useAppSelector } from '@store/index';
+import { useTheme } from '@shared/theme';
+import {
+  Avatar,
+  EmptyState,
+  ErrorBanner,
+  SectionHeader,
+  Skeleton,
+} from '@shared/components/ui';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
+
 import { ActiveOrderCard } from '@features/dashboard/components/overview/ActiveOrderCard';
 import { QuickActions } from '@features/dashboard/components/overview/QuickActions';
-import { StatsRow } from '@features/dashboard/components/overview/StatsRow';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
-import { EmptyState } from '@features/dashboard/components/shared/EmptyState';
-import { useTheme } from '@shared/theme';
-import { useAppSelector } from '@store/index';
-import { useGetDashboardQuery } from '@services/dashboardApi';
-import { useRouter } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { ActiveOrder } from '@features/dashboard/dashboard.types';
 
-function Skeleton() {
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function DashboardSkeleton(): React.JSX.Element {
   const { colors, sp, r } = useTheme();
+  const styles = StyleSheet.create({
+    statsRow: {
+      flexDirection: 'row',
+      gap: sp.sm,
+      paddingHorizontal: sp.base,
+      marginTop: sp.lg,
+    },
+    statCard: {
+      flex: 1,
+      height: 80,
+      backgroundColor: colors.elevated,
+      borderRadius: r.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    section: { paddingHorizontal: sp.base, marginTop: sp.xl },
+    orderCard: {
+      height: 120,
+      backgroundColor: colors.elevated,
+      borderRadius: r.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: sp.sm,
+    },
+    quickRow: {
+      flexDirection: 'row',
+      gap: sp.sm,
+      paddingHorizontal: sp.base,
+      marginTop: sp.lg,
+    },
+    quickCard: {
+      flex: 1,
+      height: 72,
+      backgroundColor: colors.elevated,
+      borderRadius: r.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+  });
+
   return (
-    <View style={{ padding: sp.base, gap: sp.sm }}>
-      {/* Stats skeleton */}
-      <View style={{ flexDirection: 'row', gap: sp.sm }}>
+    <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Stats row */}
+      <View style={styles.statsRow}>
         {[0, 1, 2, 3].map((i) => (
-          <View
-            key={i}
-            style={{ flex: 1, height: 88, backgroundColor: colors.panel, borderRadius: r.lg }}
-          />
+          <View key={i} style={styles.statCard} />
         ))}
       </View>
-      {/* Order skeleton */}
-      <View style={{ height: 120, backgroundColor: colors.panel, borderRadius: r.lg, marginTop: sp.sm }} />
-      <View style={{ height: 120, backgroundColor: colors.panel, borderRadius: r.lg }} />
-    </View>
+
+      {/* Active orders skeleton */}
+      <View style={styles.section}>
+        <Skeleton width={120} height={18} />
+        <View style={{ marginTop: sp.md }}>
+          <View style={styles.orderCard} />
+          <View style={styles.orderCard} />
+        </View>
+      </View>
+
+      {/* Quick links skeleton */}
+      <View style={styles.section}>
+        <Skeleton width={100} height={18} />
+        <View style={[styles.quickRow, { marginTop: sp.sm }]}>
+          <View style={styles.quickCard} />
+          <View style={styles.quickCard} />
+        </View>
+        <View style={[styles.quickRow, { marginTop: sp.sm, paddingHorizontal: 0 }]}>
+          <View style={styles.quickCard} />
+          <View style={styles.quickCard} />
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
-export default function OverviewScreen() {
-  const { colors, sp, typo } = useTheme();
-  const user = useAppSelector((s) => s.auth.user);
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function DashboardOverviewScreen(): React.JSX.Element {
+  const { colors, sp, r, typo, elev } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { data, isLoading } = useGetDashboardQuery();
+  const authUser = useAppSelector((s) => s.auth.user);
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+  const { data, isLoading, isError, refetch } = useGetCustomerDashboardQuery();
 
-  const quickActions = [
+  const firstName =
+    (authUser?.name ?? '').split(' ')[0] ?? 'there';
+
+  const handleViewOrders = useCallback(() => {
+    router.push('/(dashboard)/orders' as never);
+  }, [router]);
+
+  const handleGoWishlist = useCallback(() => {
+    router.push('/(dashboard)/wishlist' as never);
+  }, [router]);
+
+  const handleGoLoyalty = useCallback(() => {
+    router.push('/(dashboard)/loyalty' as never);
+  }, [router]);
+
+  const handleGoSettings = useCallback(() => {
+    router.push('/(dashboard)/settings' as never);
+  }, [router]);
+
+  const quickActions = React.useMemo(
+    () => [
+      { icon: 'shippingbox.fill', label: 'My Orders', onPress: handleViewOrders },
+      { icon: 'heart.fill', label: 'Wishlist', onPress: handleGoWishlist },
+      { icon: 'gift.fill', label: 'Loyalty', onPress: handleGoLoyalty },
+      { icon: 'gearshape.fill', label: 'Settings', onPress: handleGoSettings },
+    ],
+    [handleViewOrders, handleGoWishlist, handleGoLoyalty, handleGoSettings],
+  );
+
+  const renderActiveOrder = useCallback(
+    ({ item }: { item: ActiveOrder }) => <ActiveOrderCard order={item} />,
+    [],
+  );
+
+  const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    header: {
+      backgroundColor: colors.navSolid,
+      paddingTop: insets.top + sp.sm,
+      paddingHorizontal: sp.base,
+      paddingBottom: sp.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      ...elev.high,
+    },
+    greeting: {
+      ...typo.scale.title3,
+      fontFamily: typo.fonts.serifBold,
+      color: colors.textHigh,
+    },
+    subtitle: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+      marginTop: 2,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      gap: sp.sm,
+      paddingHorizontal: sp.base,
+      marginTop: sp.lg,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: colors.elevated,
+      borderRadius: r.md,
+      padding: sp.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: sp.xs,
+      ...elev.low,
+    },
+    statValue: {
+      ...typo.scale.title2,
+      fontFamily: typo.fonts.display,
+      color: colors.accent,
+    },
+    statLabel: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+    },
+    section: { paddingHorizontal: sp.base, marginTop: sp.xl },
+    content: { paddingBottom: sp['4xl'] },
+  });
+
+  // ── Header (always rendered above loading state) ───────────────────────────
+  const header = (
+    <View style={styles.header}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
+        <Text style={styles.subtitle}>Customer Dashboard</Text>
+      </View>
+      <Avatar
+        uri={data?.user?.avatarUrl ?? authUser?.avatarUrl ?? undefined}
+        name={data?.user?.name ?? authUser?.name}
+        size={40}
+      />
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.screen}>
+        {header}
+        <DashboardSkeleton />
+      </View>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <View style={styles.screen}>
+        {header}
+        <View style={{ padding: sp.base, marginTop: sp.lg }}>
+          <ErrorBanner
+            message="Could not load your dashboard. Please try again."
+            onRetry={refetch}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  const statItems = [
     {
-      icon: 'bag.fill',
-      label: 'Browse Fabrics',
-      onPress: () => router.push('/(tabs)/shop' as any),
+      icon: 'shippingbox.fill' as const,
+      value: data.stats.totalOrders,
+      label: 'Total Orders',
     },
     {
-      icon: 'scissors',
-      label: 'Find a Tailor',
-      onPress: () => router.push('/(tabs)/tailors' as any),
+      icon: 'bag.fill' as const,
+      value: data.stats.activeOrders,
+      label: 'Active',
     },
     {
-      icon: 'paintbrush.fill',
-      label: 'My Designs',
-      onPress: () => router.push('/(dashboard)/wishlist' as any),
+      icon: 'gift.fill' as const,
+      value: data.stats.loyaltyPoints,
+      label: 'Points',
     },
     {
-      icon: 'ruler.fill',
-      label: 'Measurements',
-      onPress: () =>
-        Alert.alert('Coming Soon', 'Measurements management will be available in the next update.'),
+      icon: 'person.fill' as const,
+      value: data.stats.referralCount,
+      label: 'Referrals',
     },
   ];
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-      <DashboardHeader title="My Dashboard" />
-
-      {isLoading ? (
-        <Skeleton />
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: sp['3xl'] }}
-        >
-          {/* Greeting */}
-          <View style={{ padding: sp.base, paddingBottom: sp.sm }}>
-            <Text
-              style={[typo.scale.title2, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}
-            >
-              {greeting()}, {data?.user?.name?.split(' ')[0] ?? user?.name?.split(' ')[0] ?? 'there'}
-            </Text>
-            <Text
-              style={[
-                typo.scale.body,
-                { fontFamily: typo.fonts.sans, color: colors.textMid, marginTop: 2 },
-              ]}
-            >
-              Here's your Dhaggay overview
-            </Text>
-          </View>
-
-          {/* Stats */}
-          {data?.stats && (
-            <View style={{ paddingHorizontal: sp.base, marginBottom: sp.base }}>
-              <StatsRow stats={data.stats} />
+    <View style={styles.screen}>
+      {header}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+        {/* 2×2 Stats grid */}
+        <View style={styles.statsRow}>
+          {statItems.map((item) => (
+            <View key={item.label} style={styles.statCard}>
+              <IconSymbol name={item.icon} size={20} color={colors.accent} />
+              <Text style={styles.statValue}>{(item.value ?? 0).toLocaleString()}</Text>
+              <Text style={styles.statLabel}>{item.label}</Text>
             </View>
+          ))}
+        </View>
+
+        {/* Active orders */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Active Orders"
+            action={{ label: 'See all', onPress: handleViewOrders }}
+          />
+          {data.activeOrders.length === 0 ? (
+            <EmptyState
+              icon={
+                <IconSymbol name="shippingbox.fill" size={32} color={colors.textLow} />
+              }
+              title="No active orders"
+              message="Your confirmed orders will appear here."
+            />
+          ) : (
+            <FlatList
+              data={data.activeOrders}
+              keyExtractor={(item) => item._id}
+              renderItem={renderActiveOrder}
+              scrollEnabled={false}
+            />
           )}
+        </View>
 
-          {/* Active Orders */}
-          <View style={{ paddingHorizontal: sp.base, marginBottom: sp.base }}>
-            <View style={[styles.sectionHeader, { marginBottom: sp.sm }]}>
-              <Text
-                style={[
-                  typo.scale.label,
-                  {
-                    fontFamily: typo.fonts.sansMed,
-                    color: colors.textLow,
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  },
-                ]}
-              >
-                In Progress
-              </Text>
-              <Text
-                onPress={() => router.push('/(dashboard)/orders' as any)}
-                style={[
-                  typo.scale.caption,
-                  { fontFamily: typo.fonts.sansMed, color: colors.accent },
-                ]}
-              >
-                See all
-              </Text>
-            </View>
-
-            {data?.activeOrders && data.activeOrders.length > 0 ? (
-              data.activeOrders.slice(0, 2).map((order) => (
-                <ActiveOrderCard key={order._id} order={order} />
-              ))
-            ) : (
-              <EmptyState
-                icon="shippingbox.fill"
-                title="No active orders"
-                message="Your in-progress orders will appear here."
-                ctaLabel="Start Shopping"
-                onCta={() => router.push('/(tabs)/shop' as any)}
-              />
-            )}
-          </View>
-
-          {/* Quick Actions */}
-          <View style={{ paddingHorizontal: sp.base }}>
-            <Text
-              style={[
-                typo.scale.label,
-                {
-                  fontFamily: typo.fonts.sansMed,
-                  color: colors.textLow,
-                  textTransform: 'uppercase',
-                  letterSpacing: 1,
-                  marginBottom: sp.sm,
-                },
-              ]}
-            >
-              Quick Actions
-            </Text>
-            <QuickActions actions={quickActions} />
-          </View>
-        </ScrollView>
-      )}
+        {/* Quick links */}
+        <View style={styles.section}>
+          <SectionHeader title="Quick Links" />
+          <QuickActions actions={quickActions} />
+        </View>
+      </ScrollView>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-});

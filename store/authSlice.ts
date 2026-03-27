@@ -6,6 +6,8 @@ export interface AuthUser {
   name: string;
   phone: string;
   role: 'customer' | 'tailor' | 'seller' | 'delivery' | 'admin';
+  status: 'active' | 'pending' | 'suspended' | 'in_review';
+  avatarUrl?: string;
 }
 
 interface AuthState {

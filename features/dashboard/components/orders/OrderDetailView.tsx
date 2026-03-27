@@ -52,7 +52,7 @@ export function OrderDetailView({ order }: Props) {
         >
           Order Progress
         </Text>
-        <OrderProgressBar currentStep={order.currentStep} status={order.status} />
+        <OrderProgressBar statusHistory={order.statusHistory} status={order.status} />
       </View>
 
       {/* Product card */}

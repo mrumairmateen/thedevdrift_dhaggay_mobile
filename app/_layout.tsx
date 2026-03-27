@@ -28,9 +28,6 @@ import { loadAuthTokens } from '@store/secureAuth';
 
 SplashScreen.preventAutoHideAsync();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
 
 function RootNavigator() {
   const { colors, mode } = useTheme();
@@ -46,6 +43,7 @@ function RootNavigator() {
           headerShown: false,
         }}
       >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="shop/[slug]" options={{ headerShown: false }} />
         <Stack.Screen name="store/[slug]" options={{ headerShown: false }} />
@@ -56,6 +54,10 @@ function RootNavigator() {
         <Stack.Screen name="account" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="(dashboard)" options={{ headerShown: false }} />
+        <Stack.Screen name="(seller)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tailor-dash)" options={{ headerShown: false }} />
+        <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+        <Stack.Screen name="(delivery)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: true, title: '' }} />
       </Stack>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />

@@ -1,7 +1,8 @@
 import { StatusBadge } from '@features/dashboard/components/shared/StatusBadge';
 import type { Order } from '@features/dashboard/dashboard.types';
 import { useTheme } from '@shared/theme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
+import React, { useCallback } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface Props {
@@ -9,12 +10,13 @@ interface Props {
   onPress: (id: string) => void;
 }
 
-export function OrderListItem({ order, onPress }: Props) {
+export const OrderListItem = React.memo(function OrderListItem({ order, onPress }: Props): React.JSX.Element {
   const { colors, sp, r, typo } = useTheme();
+  const handlePress = useCallback(() => onPress(order._id), [onPress, order._id]);
 
   return (
     <Pressable
-      onPress={() => onPress(order._id)}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.row,
         {
@@ -67,7 +69,7 @@ export function OrderListItem({ order, onPress }: Props) {
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1 },

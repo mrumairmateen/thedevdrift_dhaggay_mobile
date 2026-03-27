@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { AddressFormSheet } from './AddressFormSheet';
 import type { Address, AddressInput } from '@features/dashboard/dashboard.types';
 import { useTheme } from '@shared/theme';
@@ -30,7 +30,7 @@ export function AddressList({ addresses }: Props) {
   const handleSave = async (input: AddressInput) => {
     try {
       if (editing) {
-        await updateAddress({ id: editing._id, ...input }).unwrap();
+        await updateAddress({ id: editing._id, body: input }).unwrap();
       } else {
         await addAddress(input).unwrap();
       }

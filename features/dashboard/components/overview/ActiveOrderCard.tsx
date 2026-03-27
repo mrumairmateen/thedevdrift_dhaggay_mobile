@@ -3,19 +3,20 @@ import { StatusBadge } from '@features/dashboard/components/shared/StatusBadge';
 import type { ActiveOrder } from '@features/dashboard/dashboard.types';
 import { useTheme } from '@shared/theme';
 import { useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface Props {
   order: ActiveOrder;
 }
 
-export function ActiveOrderCard({ order }: Props) {
+export const ActiveOrderCard = React.memo(function ActiveOrderCard({ order }: Props): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
   const router = useRouter();
 
-  const handlePress = () => {
-    router.push(`/(dashboard)/orders/${order._id}` as any);
-  };
+  const handlePress = useCallback(() => {
+    router.push(`/(dashboard)/orders/${order._id}` as never);
+  }, [router, order._id]);
 
   return (
     <Pressable
@@ -72,11 +73,11 @@ export function ActiveOrderCard({ order }: Props) {
 
       {/* Progress bar */}
       <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-        <OrderProgressBar currentStep={order.currentStep} status={order.status} />
+        <OrderProgressBar statusHistory={order.statusHistory} status={order.status} />
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, overflow: 'hidden' },

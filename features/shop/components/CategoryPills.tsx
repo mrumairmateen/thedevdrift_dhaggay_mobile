@@ -1,75 +1,94 @@
-import React, { useRef } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { useTheme } from '@shared/theme';
-import type { FabricCategory } from '../shop.types';
-import { FABRIC_CATEGORIES } from '../shop.types';
+import type { FabricCategory } from '@features/shop/shop.types';
+import { FABRIC_CATEGORIES } from '@features/shop/shop.types';
 
-const CATEGORY_LABELS: Record<FabricCategory, string> = {
-  lawn: 'Lawn',
-  silk: 'Silk',
-  cotton: 'Cotton',
-  chiffon: 'Chiffon',
-  bridal: 'Bridal',
-  linen: 'Linen',
-  velvet: 'Velvet',
-  organza: 'Organza',
-  karandi: 'Karandi',
-  khaddar: 'Khaddar',
-};
-
-interface Props {
+export interface CategoryPillsProps {
   active: FabricCategory | null;
-  onSelect: (category: FabricCategory | null) => void;
+  onSelect: (cat: FabricCategory | null) => void;
 }
 
-export function CategoryPills({ active, onSelect }: Props) {
-  const { colors, sp, r, typo } = useTheme();
-  const scrollRef = useRef<ScrollView>(null);
+interface PillItem {
+  label: string;
+  value: FabricCategory | null;
+}
 
-  const pills: Array<{ label: string; value: FabricCategory | null }> = [
-    { label: 'All', value: null },
-    ...FABRIC_CATEGORIES.map(c => ({ label: CATEGORY_LABELS[c], value: c })),
-  ];
+const ALL_PILL: PillItem = { label: 'All', value: null };
+
+const CATEGORY_PILLS: PillItem[] = [
+  ALL_PILL,
+  ...FABRIC_CATEGORIES.map(
+    (cat): PillItem => ({
+      label: cat.charAt(0).toUpperCase() + cat.slice(1),
+      value: cat,
+    }),
+  ),
+];
+
+export const CategoryPills = React.memo(function CategoryPills({
+  active,
+  onSelect,
+}: CategoryPillsProps): React.JSX.Element {
+  const { colors, sp, r, typo } = useTheme();
+
+  const styles = StyleSheet.create({
+    contentContainer: {
+      paddingHorizontal: sp.base,
+      gap: sp.sm,
+      paddingVertical: sp.xs,
+    },
+    pill: {
+      height: 34,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.md,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pillActive: {
+      backgroundColor: colors.accentSubtle,
+      borderColor: colors.accent,
+    },
+    pillInactive: {
+      backgroundColor: colors.chipBg,
+      borderColor: colors.border,
+    },
+    pillTextActive: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.accent,
+    },
+    pillTextInactive: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textMid,
+    },
+  });
+
+  const handleSelect = useCallback(
+    (value: FabricCategory | null) => {
+      onSelect(value);
+    },
+    [onSelect],
+  );
 
   return (
     <ScrollView
-      ref={scrollRef}
-      horizontal
+      horizontal={true}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[styles.container, { paddingHorizontal: sp.base, gap: sp.sm }]}
+      contentContainerStyle={styles.contentContainer}
     >
-      {pills.map(pill => {
+      {CATEGORY_PILLS.map(pill => {
         const isActive = pill.value === active;
         return (
           <Pressable
             key={pill.label}
-            onPress={() => onSelect(pill.value)}
-            style={[
-              styles.pill,
-              {
-                backgroundColor: isActive ? colors.accent : colors.chipBg,
-                borderRadius: r.pill,
-                paddingHorizontal: sp.md,
-                paddingVertical: sp.xs + 2,
-              },
-            ]}
+            style={[styles.pill, isActive ? styles.pillActive : styles.pillInactive]}
+            onPress={() => handleSelect(pill.value)}
           >
-            <Text
-              style={[
-                typo.scale.label,
-                {
-                  fontFamily: typo.fonts.sansMed,
-                  color: isActive ? colors.textOnAccent : colors.textMid,
-                },
-              ]}
-            >
+            <Text style={isActive ? styles.pillTextActive : styles.pillTextInactive}>
               {pill.label}
             </Text>
           </Pressable>
@@ -77,16 +96,4 @@ export function CategoryPills({ active, onSelect }: Props) {
       })}
     </ScrollView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  pill: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });

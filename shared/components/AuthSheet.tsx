@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { useTheme } from '@shared/theme';
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { closeAuthSheet, setCredentials, setSheetMode } from '@store/authSlice';

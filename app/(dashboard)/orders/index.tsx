@@ -1,78 +1,148 @@
-import { OrderListItem } from '@features/dashboard/components/orders/OrderListItem';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
-import { EmptyState } from '@features/dashboard/components/shared/EmptyState';
-import type { OrderStatus } from '@features/dashboard/dashboard.types';
-import { useTheme } from '@shared/theme';
-import { useGetOrdersQuery } from '@services/ordersApi';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
+  ListRenderItem,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 
-type FilterOption = 'all' | OrderStatus;
+import { useGetOrdersQuery } from '@services/ordersApi';
+import { useTheme } from '@shared/theme';
+import {
+  EmptyState,
+  ErrorBanner,
+  Skeleton,
+} from '@shared/components/ui';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
+import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { OrderListItem } from '@features/dashboard/components/orders/OrderListItem';
+import type { Order, OrderStatus } from '@features/dashboard/dashboard.types';
 
-const FILTERS: { label: string; value: FilterOption }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'in_production' },
-  { label: 'Delivered', value: 'delivered' },
-  { label: 'Cancelled', value: 'cancelled' },
+// ─── Filter config ────────────────────────────────────────────────────────────
+
+type FilterTab = 'all' | 'active' | 'delivered' | 'cancelled';
+
+interface FilterConfig {
+  label: string;
+  tab: FilterTab;
+  status: OrderStatus | undefined;
+}
+
+const FILTER_TABS: FilterConfig[] = [
+  { label: 'All', tab: 'all', status: undefined },
+  { label: 'Active', tab: 'active', status: 'tailor_working' },
+  { label: 'Delivered', tab: 'delivered', status: 'delivered_to_customer' },
+  { label: 'Cancelled', tab: 'cancelled', status: 'cancelled_by_customer' },
 ];
 
-export default function OrdersScreen() {
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function OrdersListSkeleton(): React.JSX.Element {
+  const { sp, r } = useTheme();
+  return (
+    <View style={{ padding: sp.base, gap: sp.sm }}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Skeleton key={i} width="100%" height={86} radius={r.lg} />
+      ))}
+    </View>
+  );
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function OrdersScreen(): React.JSX.Element {
   const { colors, sp, r, typo } = useTheme();
   const router = useRouter();
-  const [filter, setFilter] = useState<FilterOption>('all');
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [page, setPage] = useState(1);
 
-  const { data, isLoading, isFetching } = useGetOrdersQuery({
+  const filterStatus: OrderStatus | undefined =
+    FILTER_TABS.find((f) => f.tab === activeTab)?.status;
+
+  const { data, isLoading, isError, refetch } = useGetOrdersQuery({
     page,
-    limit: 15,
-    status: filter === 'all' ? undefined : filter,
+    limit: 20,
+    ...(filterStatus !== undefined ? { status: filterStatus } : {}),
   });
 
-  const handleOrderPress = (id: string) => {
-    router.push(`/(dashboard)/orders/${id}` as any);
-  };
+  const handleTabChange = useCallback((tab: FilterTab) => {
+    setActiveTab(tab);
+    setPage(1);
+  }, []);
+
+  const handleOrderPress = useCallback(
+    (id: string) => {
+      router.push(`/(dashboard)/orders/${id}` as never);
+    },
+    [router],
+  );
+
+  const renderItem = useCallback<ListRenderItem<Order>>(
+    ({ item }) => <OrderListItem order={item} onPress={handleOrderPress} />,
+    [handleOrderPress],
+  );
+
+  const styles = StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    filterBar: {
+      flexGrow: 0,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    filterContent: {
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.sm,
+      gap: sp.sm,
+    },
+    pill: {
+      borderWidth: 1,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.md,
+      paddingVertical: sp.xs,
+    },
+    listContent: { padding: sp.base, paddingBottom: sp['2xl'] },
+    pagination: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.sm,
+    },
+    pageBtn: {
+      borderRadius: r.sm,
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.xs,
+    },
+  });
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
-      <DashboardHeader title="My Orders" />
+    <View style={styles.screen}>
+      <DashboardHeader title="My Orders" showBack={false} />
 
-      {/* Filter pills */}
+      {/* Filter tabs */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: sp.base,
-          paddingVertical: sp.sm,
-          gap: sp.sm,
-        }}
-        style={{ flexGrow: 0, borderBottomWidth: 1, borderBottomColor: colors.border }}
+        style={styles.filterBar}
+        contentContainerStyle={styles.filterContent}
       >
-        {FILTERS.map((f) => {
-          const active = filter === f.value;
+        {FILTER_TABS.map((f) => {
+          const isActive = activeTab === f.tab;
           return (
             <Pressable
-              key={f.value}
-              onPress={() => {
-                setFilter(f.value);
-                setPage(1);
-              }}
+              key={f.tab}
+              onPress={() => handleTabChange(f.tab)}
               style={[
                 styles.pill,
                 {
-                  backgroundColor: active ? colors.accentSubtle : colors.chipBg,
-                  borderColor: active ? colors.accent : colors.border,
-                  borderRadius: r.pill,
-                  paddingHorizontal: sp.md,
-                  paddingVertical: sp.xs,
+                  backgroundColor: isActive ? colors.accentSubtle : colors.chipBg,
+                  borderColor: isActive ? colors.accent : colors.border,
                 },
               ]}
             >
@@ -80,8 +150,8 @@ export default function OrdersScreen() {
                 style={[
                   typo.scale.caption,
                   {
-                    fontFamily: active ? typo.fonts.sansBold : typo.fonts.sans,
-                    color: active ? colors.accent : colors.textMid,
+                    fontFamily: isActive ? typo.fonts.sansBold : typo.fonts.sans,
+                    color: isActive ? colors.accent : colors.textMid,
                   },
                 ]}
               >
@@ -92,79 +162,46 @@ export default function OrdersScreen() {
         })}
       </ScrollView>
 
+      {/* Async states */}
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
+        <OrdersListSkeleton />
+      ) : isError ? (
+        <View style={{ padding: sp.base }}>
+          <ErrorBanner
+            message="Could not load your orders. Please try again."
+            onRetry={refetch}
+          />
         </View>
-      ) : !data?.orders.length ? (
+      ) : !data || data.orders.length === 0 ? (
         <EmptyState
-          icon="shippingbox.fill"
+          icon={
+            <IconSymbol name="shippingbox.fill" size={32} color={colors.textLow} />
+          }
           title="No orders yet"
           message="Your orders will appear here once you place them."
-          ctaLabel="Start Shopping"
-          onCta={() => router.push('/(tabs)/shop' as any)}
         />
       ) : (
         <>
           <FlatList
             data={data.orders}
             keyExtractor={(item) => item._id}
-            renderItem={({ item }) => (
-              <OrderListItem order={item} onPress={handleOrderPress} />
-            )}
-            contentContainerStyle={{ padding: sp.base, paddingBottom: sp['2xl'] }}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            removeClippedSubviews
           />
 
           {/* Pagination */}
           {data.pages > 1 && (
-            <View
-              style={[
-                styles.pagination,
-                {
-                  borderTopColor: colors.border,
-                  paddingHorizontal: sp.base,
-                  paddingVertical: sp.sm,
-                },
-              ]}
-            >
+            <View style={styles.pagination}>
               <Pressable
                 onPress={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1 || isFetching}
+                disabled={page === 1}
                 style={[
                   styles.pageBtn,
                   {
-                    backgroundColor: page === 1 ? colors.panel : colors.accentSubtle,
-                    borderRadius: r.sm,
-                    paddingHorizontal: sp.base,
-                    paddingVertical: sp.xs,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    typo.scale.bodySmall,
-                    { fontFamily: typo.fonts.sansMed, color: page === 1 ? colors.textLow : colors.accent },
-                  ]}
-                >
-                  Prev
-                </Text>
-              </Pressable>
-
-              <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textMid }]}>
-                {page} / {data.pages}
-              </Text>
-
-              <Pressable
-                onPress={() => setPage((p) => Math.min(data.pages, p + 1))}
-                disabled={page === data.pages || isFetching}
-                style={[
-                  styles.pageBtn,
-                  {
-                    backgroundColor: page === data.pages ? colors.panel : colors.accentSubtle,
-                    borderRadius: r.sm,
-                    paddingHorizontal: sp.base,
-                    paddingVertical: sp.xs,
+                    backgroundColor:
+                      page === 1 ? colors.panel : colors.accentSubtle,
                   },
                 ]}
               >
@@ -173,7 +210,43 @@ export default function OrdersScreen() {
                     typo.scale.bodySmall,
                     {
                       fontFamily: typo.fonts.sansMed,
-                      color: page === data.pages ? colors.textLow : colors.accent,
+                      color: page === 1 ? colors.textLow : colors.accent,
+                    },
+                  ]}
+                >
+                  Prev
+                </Text>
+              </Pressable>
+
+              <Text
+                style={[
+                  typo.scale.caption,
+                  { fontFamily: typo.fonts.sans, color: colors.textMid },
+                ]}
+              >
+                {page} / {data.pages}
+              </Text>
+
+              <Pressable
+                onPress={() =>
+                  setPage((p) => Math.min(data.pages, p + 1))
+                }
+                disabled={page === data.pages}
+                style={[
+                  styles.pageBtn,
+                  {
+                    backgroundColor:
+                      page === data.pages ? colors.panel : colors.accentSubtle,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    typo.scale.bodySmall,
+                    {
+                      fontFamily: typo.fonts.sansMed,
+                      color:
+                        page === data.pages ? colors.textLow : colors.accent,
                     },
                   ]}
                 >
@@ -187,16 +260,3 @@ export default function OrdersScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  pill: { borderWidth: 1 },
-  pagination: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-  },
-  pageBtn: {},
-});

@@ -1,4 +1,4 @@
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { CategoryPills } from '@features/shop/components/CategoryPills';
 import { ProductCard } from '@features/shop/components/ProductCard';
 import type { FabricCategory, SortOption } from '@features/shop/shop.types';

@@ -1,85 +1,76 @@
-import { useTheme } from '@shared/theme';
+import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-const STATS = [
-  { value: '12,000+', label: 'Happy customers',   accent: true  },
-  { value: '480+',    label: 'Verified tailors',  accent: false },
-  { value: '3,200+',  label: 'Fabric listings',   accent: false },
-  { value: '98%',     label: 'On-time delivery',  accent: true  },
+import { useTheme } from '@shared/theme';
+
+export interface TrustStatsProps {}
+
+interface Stat {
+  value: string;
+  label: string;
+}
+
+const STATS: Stat[] = [
+  { value: '12K+',  label: 'Outfits Delivered' },
+  { value: '4.9★',  label: 'Average Rating'    },
+  { value: '340+',  label: 'Master Tailors'    },
+  { value: '800+',  label: 'Fabric SKUs'       },
 ];
 
-export function TrustStats() {
-  const { colors, sp, r, typo } = useTheme();
+export const TrustStats = React.memo(function TrustStats(
+  _props: TrustStatsProps,
+): React.JSX.Element {
+  const { colors, sp, typo } = useTheme();
+
+  const styles = StyleSheet.create({
+    container: {
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.elevated,
+      paddingVertical: sp.xl,
+      paddingHorizontal: sp.base,
+    },
+    heading: {
+      ...typo.scale.subtitle,
+      fontFamily: typo.fonts.serif,
+      color: colors.textMid,
+      textAlign: 'center',
+      marginBottom: sp.xl,
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    statCell: {
+      width: '50%',
+      marginBottom: sp.lg,
+    },
+    value: {
+      ...typo.scale.title1,
+      fontFamily: typo.fonts.display,
+      color: colors.textHigh,
+      textAlign: 'center',
+    },
+    label: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+      textAlign: 'center',
+    },
+  });
 
   return (
-    <View style={[styles.root, { paddingHorizontal: sp.base }]}>
-      {/* Label */}
-      <Text
-        style={[
-          typo.scale.label,
-          {
-            fontFamily: typo.fonts.sansMed,
-            color: colors.accent,
-            marginBottom: sp.sm,
-            textAlign: 'center',
-          },
-        ]}
-      >
-        TRUSTED BY THOUSANDS
-      </Text>
-
-      {/* 2×2 grid */}
-      <View style={[styles.grid, { gap: sp.sm }]}>
-        {STATS.map((stat) => (
-          <View
-            key={stat.label}
-            style={[
-              styles.box,
-              {
-                backgroundColor: colors.elevated,
-                borderColor: colors.border,
-                borderRadius: r.lg,
-                padding: sp.lg,
-                flex: 1,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                typo.scale.hero,
-                {
-                  fontFamily: typo.fonts.display,
-                  color: stat.accent ? colors.accent : colors.textHigh,
-                  lineHeight: 50,
-                  marginBottom: sp.xs,
-                },
-              ]}
-            >
-              {stat.value}
-            </Text>
-            <Text
-              style={[
-                typo.scale.caption,
-                { fontFamily: typo.fonts.sans, color: colors.textMid },
-              ]}
-            >
-              {stat.label}
-            </Text>
+    <View style={styles.container}>
+      <Text style={styles.heading}>{'Trusted by thousands across Pakistan'}</Text>
+      <View style={styles.grid}>
+        {STATS.map(stat => (
+          <View key={stat.label} style={styles.statCell}>
+            <Text style={styles.value}>{stat.value}</Text>
+            <Text style={styles.label}>{stat.label}</Text>
           </View>
         ))}
       </View>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  root: {},
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  box: {
-    borderWidth: 1,
-    minWidth: '47%',
-  },
 });
