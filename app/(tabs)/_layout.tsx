@@ -1,35 +1,85 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@shared/theme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { colors, sp, typo } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarStyle: {
+          backgroundColor: colors.navSolid,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          height: 56 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: sp.xs,
+          elevation: 0,
+        },
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textLow,
+        tabBarLabelStyle: {
+          ...typo.scale.label,
+          fontSize: 10,
+          marginTop: 2,
+        },
+        tabBarIconStyle: { marginBottom: 0 },
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="house.fill" size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="shop"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Shop',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="bag.fill" size={22} color={color} />
+          ),
         }}
       />
+      <Tabs.Screen
+        name="stores"
+        options={{
+          title: 'Stores',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="building.2.fill" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="designs"
+        options={{
+          title: 'Designs',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="paintbrush.fill" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="tailors"
+        options={{
+          title: 'Tailors',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="scissors" size={22} color={color} />
+          ),
+        }}
+      />
+      {/* Hidden from tab bar */}
+      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="cart" options={{ href: null }} />
+      <Tabs.Screen name="account" options={{ href: null }} />
     </Tabs>
   );
 }
