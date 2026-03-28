@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -62,6 +63,7 @@ function thirtyDaysFromNow(): string {
 interface CapacityCardProps {
   weeklyCapacity: number;
   currentLoad: number;
+  isAvailable: boolean;
   onSave: (capacity: number) => void;
   isSaving: boolean;
 }
@@ -69,6 +71,7 @@ interface CapacityCardProps {
 const CapacityCard = React.memo(function CapacityCard({
   weeklyCapacity,
   currentLoad,
+  isAvailable,
   onSave,
   isSaving,
 }: CapacityCardProps): React.JSX.Element {
@@ -115,6 +118,21 @@ const CapacityCard = React.memo(function CapacityCard({
       ...typo.scale.bodySmall,
       fontFamily: typo.fonts.sans,
       color: colors.textHigh,
+    },
+    availabilityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.xs,
+      marginBottom: sp.md,
+    },
+    availabilityDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    availabilityText: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sansMed,
     },
     loadText: {
       ...typo.scale.caption,
@@ -170,6 +188,23 @@ const CapacityCard = React.memo(function CapacityCard({
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Capacity</Text>
+
+      <View style={styles.availabilityRow}>
+        <View
+          style={[
+            styles.availabilityDot,
+            { backgroundColor: isAvailable ? colors.success : colors.error },
+          ]}
+        />
+        <Text
+          style={[
+            styles.availabilityText,
+            { color: isAvailable ? colors.success : colors.error },
+          ]}
+        >
+          {isAvailable ? 'Available for new orders' : 'Not accepting new orders'}
+        </Text>
+      </View>
 
       <View style={styles.row}>
         <Text style={styles.label}>Weekly Capacity: {localCapacity} orders</Text>
@@ -579,6 +614,71 @@ function UpcomingOrdersSection({ ordersByDate }: UpcomingOrdersSectionProps): Re
   );
 }
 
+// ─── Eid Opt-In Card ──────────────────────────────────────────────────────────
+
+interface EidOptInCardProps {
+  eidOptIn: boolean;
+  onToggle: (value: boolean) => void;
+  isSaving: boolean;
+}
+
+const EidOptInCard = React.memo(function EidOptInCard({
+  eidOptIn,
+  onToggle,
+  isSaving,
+}: EidOptInCardProps): React.JSX.Element {
+  const { colors, sp, r, typo, elev } = useTheme();
+
+  const styles = StyleSheet.create({
+    card: {
+      backgroundColor: colors.elevated,
+      borderRadius: r.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: sp.md,
+      marginBottom: sp.md,
+      ...elev.low,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    left: { flex: 1, marginRight: sp.md },
+    title: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.textHigh,
+    },
+    desc: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+      marginTop: 2,
+    },
+  });
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.row}>
+        <View style={styles.left}>
+          <Text style={styles.title}>Eid Season Opt-In</Text>
+          <Text style={styles.desc}>
+            Accept orders during Eid rush period. Higher demand, higher earnings.
+          </Text>
+        </View>
+        <Switch
+          value={eidOptIn}
+          onValueChange={onToggle}
+          disabled={isSaving}
+          trackColor={{ false: colors.panel, true: colors.accentMid }}
+          thumbColor={eidOptIn ? colors.accent : colors.textLow}
+        />
+      </View>
+    </View>
+  );
+});
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function CalendarSkeleton(): React.JSX.Element {
@@ -622,6 +722,10 @@ export default function CalendarScreen(): React.JSX.Element {
     void updateCalendar({ blockedDates });
   }, [updateCalendar]);
 
+  const handleToggleEidOptIn = useCallback((value: boolean) => {
+    void updateCalendar({ eidOptIn: value });
+  }, [updateCalendar]);
+
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
     content: { padding: sp.base, paddingBottom: sp['4xl'] },
@@ -661,7 +765,14 @@ export default function CalendarScreen(): React.JSX.Element {
           <CapacityCard
             weeklyCapacity={data.weeklyCapacity}
             currentLoad={data.currentLoad}
+            isAvailable={data.isAvailable}
             onSave={handleSaveCapacity}
+            isSaving={isUpdating}
+          />
+
+          <EidOptInCard
+            eidOptIn={data.eidOptIn}
+            onToggle={handleToggleEidOptIn}
             isSaving={isUpdating}
           />
 

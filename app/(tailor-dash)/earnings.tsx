@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import { useGetEarningsQuery } from '@services/tailorDashApi';
-import type { EarningsData } from '@services/tailorDashApi';
+import type { EarningsData, EarningsPayout } from '@services/tailorDashApi';
 import { useTheme } from '@shared/theme';
 import { EmptyState, ErrorBanner, Skeleton, ScreenHeader } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
@@ -17,8 +17,8 @@ import { formatPkr } from '@shared/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type EarningEntry = EarningsData['byOrder'][number];
-type ChartEntry = EarningsData['chart'][number];
+type EarningEntry = EarningsPayout;
+type ChartEntry = EarningsData['months'][number];
 
 // ─── Chart bar ────────────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ const ChartBar = React.memo(function ChartBar({
 }: ChartBarProps): React.JSX.Element {
   const { colors, sp, r, typo } = useTheme();
 
-  const heightPct = maxNet > 0 ? Math.round((entry.net / maxNet) * 100) : 0;
+  const heightPct = maxNet > 0 ? Math.round((entry.amount / maxNet) * 100) : 0;
 
   const styles = StyleSheet.create({
     col: { flex: 1, alignItems: 'center', gap: sp.xs },
@@ -53,7 +53,7 @@ const ChartBar = React.memo(function ChartBar({
   return (
     <View style={styles.col}>
       <View style={[styles.bar, { height: Math.max(4, heightPct) }]} />
-      <Text style={styles.label} numberOfLines={1}>{entry.month}</Text>
+      <Text style={styles.label} numberOfLines={1}>{entry.label}</Text>
     </View>
   );
 });
@@ -206,7 +206,7 @@ export default function EarningsScreen(): React.JSX.Element {
 
   const { data, isLoading, isError, refetch } = useGetEarningsQuery();
 
-  const renderEntry = useCallback<ListRenderItem<EarningEntry>>(
+  const renderEntry = useCallback<ListRenderItem<EarningsPayout>>(
     ({ item }) => <EarningEntryCard entry={item} />,
     [],
   );
@@ -317,16 +317,13 @@ export default function EarningsScreen(): React.JSX.Element {
     );
   }
 
-  // Platform fee as percentage display (e.g. 0.17 → 17%)
-  const feePct = Math.round(data.platformFee * 100);
-
-  const maxNet = (data.chart ?? []).reduce((max, entry) => Math.max(max, entry.net), 1);
+  const maxAmount = data.months.reduce((max, entry) => Math.max(max, entry.amount), 1);
 
   return (
     <View style={styles.screen}>
       <ScreenHeader title="Earnings" />
 
-      {/* Balance cards — thisMonth, lastMonth, allTime */}
+      {/* Balance cards */}
       <View style={styles.balanceRow}>
         <View style={styles.balanceCard}>
           <IconSymbol name="clock.fill" size={18} color={colors.warning} />
@@ -336,55 +333,47 @@ export default function EarningsScreen(): React.JSX.Element {
           <Text style={styles.balanceLabel}>This Month</Text>
         </View>
         <View style={styles.balanceCard}>
-          <IconSymbol name="chart.line.uptrend.xyaxis" size={18} color={colors.accent} />
+          <IconSymbol name="banknote" size={18} color={colors.accent} />
           <Text style={[styles.balanceValue, { color: colors.accent }]}>
-            {formatPkr(data.lastMonth)}
+            {formatPkr(data.netPayout)}
           </Text>
-          <Text style={styles.balanceLabel}>Last Month</Text>
+          <Text style={styles.balanceLabel}>Net Payout</Text>
         </View>
         <View style={styles.balanceCard}>
-          <IconSymbol name="trophy.fill" size={18} color={colors.success} />
-          <Text style={[styles.balanceValue, { color: colors.success }]}>
-            {formatPkr(data.allTime)}
+          <IconSymbol name="percent" size={18} color={colors.textMid} />
+          <Text style={[styles.balanceValue, { color: colors.textMid }]}>
+            {formatPkr(data.platformFee)}
           </Text>
-          <Text style={styles.balanceLabel}>All Time</Text>
+          <Text style={styles.balanceLabel}>Platform Fee</Text>
         </View>
-      </View>
-
-      {/* Platform fee notice */}
-      <View style={styles.feeCard}>
-        <IconSymbol name="info.circle.fill" size={16} color={colors.warning} />
-        <Text style={styles.feeText}>
-          Platform fee: {feePct}% deducted from each order.
-        </Text>
       </View>
 
       {/* 6-month chart */}
-      {(data.chart ?? []).length > 0 && (
+      {data.months.length > 0 && (
         <View style={styles.chartSection}>
-          <Text style={styles.chartTitle}>Last 6 Months (Net)</Text>
+          <Text style={styles.chartTitle}>Last 6 Months</Text>
           <View style={styles.chartCard}>
             <View style={styles.chartBars}>
-              {(data.chart ?? []).map((entry) => (
-                <ChartBar key={entry.month} entry={entry} maxNet={maxNet} />
+              {data.months.map((entry) => (
+                <ChartBar key={entry.label} entry={entry} maxNet={maxAmount} />
               ))}
             </View>
           </View>
         </View>
       )}
 
-      {/* Earnings by order */}
+      {/* Payouts list */}
       <View style={styles.listSection}>
-        <Text style={styles.sectionTitle}>Earnings by Order</Text>
-        {(data.byOrder ?? []).length === 0 ? (
+        <Text style={styles.sectionTitle}>Payouts</Text>
+        {data.payouts.length === 0 ? (
           <EmptyState
             icon={<IconSymbol name="trophy.fill" size={32} color={colors.textLow} />}
-            title="No earnings yet"
-            message="Completed orders will generate earnings here."
+            title="No payouts yet"
+            message="Completed orders will generate payouts here."
           />
         ) : (
           <FlatList
-            data={data.byOrder ?? []}
+            data={data.payouts}
             keyExtractor={(item) => item._id}
             renderItem={renderEntry}
             contentContainerStyle={styles.listContent}

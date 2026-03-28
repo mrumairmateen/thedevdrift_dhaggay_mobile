@@ -10,6 +10,18 @@ export async function saveAuthTokens(payload: {
   accessToken: string;
   refreshToken: string;
 }) {
+  if (typeof payload.accessToken !== 'string' || !payload.accessToken) {
+    throw new Error(
+      `saveAuthTokens: accessToken must be a non-empty string, got ${typeof payload.accessToken}. ` +
+      `Check that the login API response field name matches the AuthPayload type.`,
+    );
+  }
+  if (typeof payload.refreshToken !== 'string' || !payload.refreshToken) {
+    throw new Error(
+      `saveAuthTokens: refreshToken must be a non-empty string, got ${typeof payload.refreshToken}. ` +
+      `Check that the login API response field name matches the AuthPayload type.`,
+    );
+  }
   await Promise.all([
     SecureStore.setItemAsync(KEY_ACCESS,  payload.accessToken),
     SecureStore.setItemAsync(KEY_REFRESH, payload.refreshToken),

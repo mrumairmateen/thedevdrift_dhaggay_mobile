@@ -231,17 +231,13 @@ export default function TailorOrdersScreen(): React.JSX.Element {
   const { colors, sp, r, typo } = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TailorOrderTab>('all');
-  const [page, setPage] = useState(1);
 
   const { data, isLoading, isError, refetch } = useGetTailorOrdersQuery({
     tab: activeTab,
-    page,
-    limit: 20,
   });
 
   const handleTabChange = useCallback((tab: TailorOrderTab) => {
     setActiveTab(tab);
-    setPage(1);
   }, []);
 
   const handleOrderPress = useCallback(
@@ -275,20 +271,6 @@ export default function TailorOrdersScreen(): React.JSX.Element {
       paddingVertical: sp.xs,
     },
     listContent: { padding: sp.base, paddingBottom: sp['2xl'] },
-    pagination: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingHorizontal: sp.base,
-      paddingVertical: sp.sm,
-    },
-    pageBtn: {
-      borderRadius: r.sm,
-      paddingHorizontal: sp.base,
-      paddingVertical: sp.xs,
-    },
     errorContainer: { padding: sp.base },
   });
 
@@ -350,74 +332,14 @@ export default function TailorOrdersScreen(): React.JSX.Element {
           message="Orders assigned to you will appear here."
         />
       ) : (
-        <>
-          <FlatList
-            data={data.orders}
-            keyExtractor={(item) => item._id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            removeClippedSubviews
-          />
-
-          {data.pages > 1 && (
-            <View style={styles.pagination}>
-              <Pressable
-                onPress={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                style={[
-                  styles.pageBtn,
-                  { backgroundColor: page === 1 ? colors.panel : colors.accentSubtle },
-                ]}
-              >
-                <Text
-                  style={[
-                    typo.scale.bodySmall,
-                    {
-                      fontFamily: typo.fonts.sansMed,
-                      color: page === 1 ? colors.textLow : colors.accent,
-                    },
-                  ]}
-                >
-                  Prev
-                </Text>
-              </Pressable>
-
-              <Text
-                style={[
-                  typo.scale.caption,
-                  { fontFamily: typo.fonts.sans, color: colors.textMid },
-                ]}
-              >
-                {page} / {data.pages}
-              </Text>
-
-              <Pressable
-                onPress={() => setPage((p) => Math.min(data.pages, p + 1))}
-                disabled={page === data.pages}
-                style={[
-                  styles.pageBtn,
-                  {
-                    backgroundColor:
-                      page === data.pages ? colors.panel : colors.accentSubtle,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    typo.scale.bodySmall,
-                    {
-                      fontFamily: typo.fonts.sansMed,
-                      color: page === data.pages ? colors.textLow : colors.accent,
-                    },
-                  ]}
-                >
-                  Next
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </>
+        <FlatList
+          data={data.orders}
+          keyExtractor={(item) => item._id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews
+        />
       )}
     </View>
   );

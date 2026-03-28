@@ -7,8 +7,13 @@ export interface TailorStats {
   activeOrders: number;
   completedThisMonth: number;
   earningsThisMonth: number;
-  averageRating: number;
-  pendingRequests: number;
+  rating: number;
+}
+
+export interface TailorApproval {
+  status: 'active' | 'pending' | 'suspended' | 'in_review' | 'rejected';
+  rejectedReason: string | null;
+  rejectedAt: string | null;
 }
 
 /**
@@ -70,9 +75,6 @@ export interface TailorOrderItem {
 
 export interface PaginatedTailorOrders {
   orders: TailorOrderItem[];
-  total: number;
-  page: number;
-  pages: number;
 }
 
 export interface TailorOrderQuery {
@@ -82,36 +84,90 @@ export interface TailorOrderQuery {
 }
 
 export interface TailorDashboard {
+  approval: TailorApproval;
   stats: TailorStats;
-  recentOrders: TailorOrderItem[];
-  profile: {
-    name: string;
-    avatarUrl: string | null;
-    tier: 'standard' | 'premium' | 'master';
-    status: 'pending' | 'active' | 'suspended' | 'in_review';
-    city: string | null;
-    specialisations: string[];
-    rating: number;
-    reviewCount: number;
-  };
+  newOrders: TailorOrderItem[];
+  activeOrders: TailorOrderItem[];
 }
 
-/**
- * Earnings shape matches GET /api/v1/dashboard/tailor/earnings per docs.
- */
+// ─── Profile types ────────────────────────────────────────────────────────────
+
+export interface TailorServiceArea {
+  _id: string;
+  city: string;
+  area: string | null;
+}
+
+export interface TailorPortfolioEntry {
+  _id: string;
+  imageUrl: string;
+  publicId: string;
+  caption: string | null;
+  createdAt: string;
+}
+
+export interface TailorPricing {
+  shalwarKameez: number;
+  suit: number;
+  bridal: number;
+  custom: number;
+}
+
+export interface TailorRatingBreakdown {
+  quality: number;
+  communication: number;
+  timeliness: number;
+}
+
+export interface TailorWorkshopAddress {
+  line1: string;
+  city: string;
+  area: string | null;
+  phone: string | null;
+}
+
+export interface TailorProfileData {
+  _id: string;
+  userId: string;
+  specialisations: string[];
+  serviceAreas: TailorServiceArea[];
+  pricing: TailorPricing;
+  gendersServed: string[];
+  portfolio: TailorPortfolioEntry[];
+  tier: 'standard' | 'premium' | 'master';
+  rating: number;
+  ratingBreakdown: TailorRatingBreakdown;
+  reviewCount: number;
+  completedOrders: number;
+  isAvailable: boolean;
+  blockedDates: string[];
+  weeklyCapacity: number;
+  currentLoad: number;
+  workshopAddress: TailorWorkshopAddress | null;
+  isVerified: boolean;
+  status: 'active' | 'pending' | 'suspended' | 'in_review';
+  categoryPricing: Array<{ garmentCategoryId: string; garmentCategorySlug: string; price: number }>;
+}
+
+// ─── Earnings types ───────────────────────────────────────────────────────────
+
+export interface EarningsPayout {
+  _id: string;
+  orderNumber: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'reversed';
+  paidAt: string | null;
+}
+
 export interface EarningsData {
   thisMonth: number;
-  lastMonth: number;
-  allTime: number;
-  platformFee: number; // e.g. 0.17
-  byOrder: Array<{
-    _id: string;
-    orderNumber: string;
-    amount: number;
-    status: 'pending' | 'paid' | 'reversed';
-    paidAt: string | null;
-  }>;
-  chart: Array<{ month: string; net: number }>;
+  platformFee: number;
+  netPayout: number;
+  months: Array<{ label: string; amount: number }>;
+  tier: 'standard' | 'premium' | 'master';
+  rating: number;
+  completedOrders: number;
+  payouts: EarningsPayout[];
 }
 
 export interface TailorProfileInput {
@@ -143,12 +199,15 @@ export interface CalendarData {
   blockedDates: string[]; // array of YYYY-MM-DD strings
   weeklyCapacity: number; // 1–30
   currentLoad: number; // active orders count
+  isAvailable: boolean;
+  eidOptIn: boolean;
   ordersByDate: Record<string, Array<{ orderId: string; orderNumber: string; deadline: string }>>;
 }
 
 export interface UpdateCalendarPayload {
   blockedDates?: string[];
   weeklyCapacity?: number;
+  eidOptIn?: boolean;
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -203,6 +262,12 @@ export const tailorDashApi = api.injectEndpoints({
       transformResponse: (res: ApiResponse<EarningsData>) => res.data,
     }),
 
+    getTailorProfile: build.query<TailorProfileData, void>({
+      query: () => '/dashboard/tailor/profile',
+      transformResponse: (res: ApiResponse<TailorProfileData>) => res.data,
+      providesTags: ['TailorOrder'],
+    }),
+
     getTailorCalendar: build.query<CalendarData, void>({
       query: () => '/dashboard/tailor/calendar',
       transformResponse: (res: ApiResponse<CalendarData>) => res.data,
@@ -228,7 +293,7 @@ export const tailorDashApi = api.injectEndpoints({
       transformResponse: (res: ApiResponse<{ success: boolean }>) => res.data,
     }),
   }),
-  overrideExisting: false,
+  overrideExisting: process.env.NODE_ENV !== 'production',
 });
 
 export const {
@@ -236,6 +301,7 @@ export const {
   useGetTailorOrdersQuery,
   useGetTailorOrderByIdQuery,
   useUpdateOrderMilestoneMutation,
+  useGetTailorProfileQuery,
   useGetEarningsQuery,
   useGetTailorCalendarQuery,
   useUpdateCalendarMutation,

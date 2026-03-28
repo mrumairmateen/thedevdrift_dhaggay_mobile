@@ -4,17 +4,17 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import {
-  useGetTailorDashboardQuery,
-  useGetTailorCalendarQuery,
+  useGetTailorProfileQuery,
   useUpdateTailorProfileMutation,
 } from '@services/tailorDashApi';
+import type { TailorProfileData } from '@services/tailorDashApi';
+import { useAppSelector } from '@store/index';
 import { useTheme } from '@shared/theme';
 import { useSignOut } from '@shared/hooks/useSignOut';
 import {
@@ -26,13 +26,10 @@ import {
   Tag,
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
+import { formatPkr } from '@shared/utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/**
- * Valid specialisation values per docs:
- * shalwar_kameez | suit | bridal | western | uniform | kids
- */
 const ALL_SPECIALISATIONS = [
   'shalwar_kameez',
   'suit',
@@ -168,164 +165,6 @@ function SpecialisationsSection({ current }: SpecialisationsSectionProps): React
   );
 }
 
-// ─── Capacity & Eid section ───────────────────────────────────────────────────
-
-interface CapacitySectionProps {
-  initialCapacity: number;
-}
-
-function CapacitySection({ initialCapacity }: CapacitySectionProps): React.JSX.Element {
-  const { colors, sp, r, typo, elev } = useTheme();
-  const [weeklyCapacity, setWeeklyCapacity] = useState(initialCapacity);
-  const [eidOptIn, setEidOptIn] = useState(false);
-  const [updateProfile, { isLoading: isSaving }] = useUpdateTailorProfileMutation();
-
-  const increment = useCallback(() => {
-    setWeeklyCapacity((n) => Math.min(30, n + 1));
-  }, []);
-
-  const decrement = useCallback(() => {
-    setWeeklyCapacity((n) => Math.max(1, n - 1));
-  }, []);
-
-  const toggleEid = useCallback((value: boolean) => {
-    setEidOptIn(value);
-  }, []);
-
-  const handleSave = useCallback(() => {
-    void updateProfile({ weeklyCapacity, eidOptIn })
-      .unwrap()
-      .then(() => {
-        Alert.alert('Saved', 'Capacity settings updated.');
-      })
-      .catch(() => {
-        Alert.alert('Error', 'Could not save settings. Please try again.');
-      });
-  }, [updateProfile, weeklyCapacity, eidOptIn]);
-
-  const styles = StyleSheet.create({
-    card: {
-      backgroundColor: colors.elevated,
-      borderRadius: r.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: sp.md,
-      marginBottom: sp.md,
-      ...elev.low,
-    },
-    sectionTitle: {
-      ...typo.scale.label,
-      fontFamily: typo.fonts.sansBold,
-      color: colors.textMid,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginBottom: sp.md,
-    },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: sp.md,
-    },
-    label: {
-      ...typo.scale.bodySmall,
-      fontFamily: typo.fonts.sans,
-      color: colors.textHigh,
-    },
-    hint: {
-      ...typo.scale.caption,
-      fontFamily: typo.fonts.sans,
-      color: colors.textLow,
-    },
-    counterRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: sp.sm,
-    },
-    counterBtn: {
-      width: 32,
-      height: 32,
-      borderRadius: r.sm,
-      backgroundColor: colors.accentSubtle,
-      borderWidth: 1,
-      borderColor: colors.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    counterBtnDisabled: {
-      backgroundColor: colors.panel,
-      borderColor: colors.border,
-    },
-    counterValue: {
-      ...typo.scale.body,
-      fontFamily: typo.fonts.sansBold,
-      color: colors.accent,
-      minWidth: 28,
-      textAlign: 'center',
-    },
-    divider: {
-      height: 1,
-      backgroundColor: colors.border,
-      marginBottom: sp.md,
-    },
-  });
-
-  return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>Capacity & Availability</Text>
-
-      {/* Weekly capacity counter */}
-      <View style={styles.row}>
-        <View>
-          <Text style={styles.label}>Weekly Capacity</Text>
-          <Text style={styles.hint}>Max orders per week (1–30)</Text>
-        </View>
-        <View style={styles.counterRow}>
-          <Pressable
-            onPress={decrement}
-            disabled={weeklyCapacity <= 1}
-            style={[styles.counterBtn, weeklyCapacity <= 1 && styles.counterBtnDisabled]}
-          >
-            <IconSymbol name="minus" size={16} color={weeklyCapacity <= 1 ? colors.textLow : colors.accent} />
-          </Pressable>
-          <Text style={styles.counterValue}>{weeklyCapacity}</Text>
-          <Pressable
-            onPress={increment}
-            disabled={weeklyCapacity >= 30}
-            style={[styles.counterBtn, weeklyCapacity >= 30 && styles.counterBtnDisabled]}
-          >
-            <IconSymbol name="plus" size={16} color={weeklyCapacity >= 30 ? colors.textLow : colors.accent} />
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Eid opt-in toggle */}
-      <View style={styles.row}>
-        <View style={{ flex: 1, marginRight: sp.md }}>
-          <Text style={styles.label}>Eid Rush Opt-in</Text>
-          <Text style={styles.hint}>Accept pre-bookings during Eid season</Text>
-        </View>
-        <Switch
-          value={eidOptIn}
-          onValueChange={toggleEid}
-          trackColor={{ false: colors.panel, true: colors.accentMid }}
-          thumbColor={eidOptIn ? colors.accent : colors.textLow}
-        />
-      </View>
-
-      <Button
-        label="Save Settings"
-        onPress={handleSave}
-        loading={isSaving}
-        variant="primary"
-        fullWidth
-      />
-    </View>
-  );
-}
-
 // ─── Profile skeleton ─────────────────────────────────────────────────────────
 
 function ProfileSkeleton(): React.JSX.Element {
@@ -347,9 +186,9 @@ function ProfileSkeleton(): React.JSX.Element {
     <ScrollView showsVerticalScrollIndicator={false}>
       <View style={styles.content}>
         <View style={styles.card} />
-        <Skeleton width="100%" height={160} radius={r.md} />
-        <Skeleton width="100%" height={180} radius={r.md} />
         <Skeleton width="100%" height={80} radius={r.md} />
+        <Skeleton width="100%" height={160} radius={r.md} />
+        <Skeleton width="100%" height={120} radius={r.md} />
       </View>
     </ScrollView>
   );
@@ -361,12 +200,16 @@ export default function TailorProfileScreen(): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
   const router = useRouter();
   const handleSignOut = useSignOut();
+  const authUser = useAppSelector((s) => s.auth.user);
 
-  const { data, isLoading, isError, refetch } = useGetTailorDashboardQuery();
-  const { data: calendarData } = useGetTailorCalendarQuery();
+  const { data, isLoading, isError, refetch } = useGetTailorProfileQuery();
 
   const handleBrowseMarketplace = useCallback(() => {
     router.push('/(tabs)' as never);
+  }, [router]);
+
+  const handleGoCalendar = useCallback(() => {
+    router.push('/(tailor-dash)/calendar' as never);
   }, [router]);
 
   const styles = StyleSheet.create({
@@ -390,13 +233,39 @@ export default function TailorProfileScreen(): React.JSX.Element {
       fontFamily: typo.fonts.sansBold,
       color: colors.textHigh,
     },
-    profileCity: {
+    tagRow: { flexDirection: 'row', alignItems: 'center', gap: sp.xs, marginTop: sp.xs },
+    verifiedText: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.success,
+    },
+    statsRow: {
+      flexDirection: 'row',
+      gap: sp.sm,
+      marginBottom: sp.md,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: colors.elevated,
+      borderRadius: r.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: sp.sm,
+      alignItems: 'center',
+      gap: sp.xs,
+      ...elev.low,
+    },
+    statValue: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.accent,
+    },
+    statLabel: {
       ...typo.scale.caption,
       fontFamily: typo.fonts.sans,
       color: colors.textMid,
-      marginTop: 2,
+      textAlign: 'center',
     },
-    tierRow: { flexDirection: 'row', marginTop: sp.xs },
     sectionCard: {
       backgroundColor: colors.elevated,
       borderRadius: r.md,
@@ -414,6 +283,29 @@ export default function TailorProfileScreen(): React.JSX.Element {
       letterSpacing: 1,
       marginBottom: sp.sm,
     },
+    areaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.xs,
+      paddingVertical: sp.xs,
+    },
+    areaText: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sans,
+      color: colors.textHigh,
+    },
+    workshopRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: sp.sm,
+      marginBottom: sp.xs,
+    },
+    workshopText: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sans,
+      color: colors.textHigh,
+      flex: 1,
+    },
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -426,12 +318,6 @@ export default function TailorProfileScreen(): React.JSX.Element {
       ...typo.scale.body,
       fontFamily: typo.fonts.sans,
       color: colors.textHigh,
-    },
-    serviceAreaNote: {
-      ...typo.scale.caption,
-      fontFamily: typo.fonts.sans,
-      color: colors.textLow,
-      marginTop: sp.xs,
     },
     errorContainer: { padding: sp.base, marginTop: sp.lg },
   });
@@ -459,8 +345,6 @@ export default function TailorProfileScreen(): React.JSX.Element {
     );
   }
 
-  const { profile } = data;
-
   return (
     <View style={styles.screen}>
       <ScreenHeader title="My Profile" />
@@ -468,49 +352,108 @@ export default function TailorProfileScreen(): React.JSX.Element {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
 
-          {/* Profile card */}
+          {/* Identity card */}
           <View style={styles.profileCard}>
             <Avatar
-              uri={profile.avatarUrl ?? undefined}
-              name={profile.name}
+              uri={authUser?.avatarUrl ?? undefined}
+              name={authUser?.name}
               size={56}
             />
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profile.name}</Text>
-              {profile.city !== null && (
-                <Text style={styles.profileCity}>{profile.city}</Text>
-              )}
-              <View style={styles.tierRow}>
+              <Text style={styles.profileName}>{authUser?.name ?? '—'}</Text>
+              <View style={styles.tagRow}>
                 <Tag
-                  label={profile.tier.toUpperCase()}
-                  variant={tierVariant(profile.tier)}
+                  label={data.tier.toUpperCase()}
+                  variant={tierVariant(data.tier)}
                 />
+                {data.isVerified && (
+                  <Text style={styles.verifiedText}>✓ Verified</Text>
+                )}
               </View>
             </View>
           </View>
 
-          {/* Specialisations */}
-          <SpecialisationsSection current={profile.specialisations} />
-
-          {/* Capacity & Eid opt-in */}
-          {calendarData !== undefined ? (
-            <CapacitySection initialCapacity={calendarData.weeklyCapacity} />
-          ) : (
-            <Skeleton width="100%" height={180} radius={r.md} />
-          )}
-
-          {/* Service areas */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Service Areas</Text>
-            <Text style={styles.serviceAreaNote}>
-              Manage your service areas on the Dhaggay web portal.
-            </Text>
+          {/* Stats row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{data.rating.toFixed(1)} ★</Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{data.reviewCount}</Text>
+              <Text style={styles.statLabel}>Reviews</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{data.completedOrders}</Text>
+              <Text style={styles.statLabel}>Completed</Text>
+            </View>
           </View>
 
-          {/* Account section */}
+          {/* Specialisations */}
+          <SpecialisationsSection current={data.specialisations} />
+
+          {/* Pricing */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Pricing</Text>
+            {(
+              [
+                ['Shalwar Kameez', data.pricing.shalwarKameez],
+                ['Suit', data.pricing.suit],
+                ['Bridal', data.pricing.bridal],
+                ['Custom', data.pricing.custom],
+              ] as Array<[string, number]>
+            ).map(([label, price]) => (
+              <View key={label} style={[styles.areaRow, { justifyContent: 'space-between' }]}>
+                <Text style={styles.areaText}>{label}</Text>
+                <Text style={[styles.areaText, { color: colors.accent, fontFamily: typo.fonts.sansBold }]}>
+                  {formatPkr(price)}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Service areas */}
+          {data.serviceAreas.length > 0 && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Service Areas</Text>
+              {data.serviceAreas.map((area) => (
+                <View key={area._id} style={styles.areaRow}>
+                  <IconSymbol name="mappin" size={12} color={colors.textLow} />
+                  <Text style={styles.areaText}>
+                    {area.area !== null ? `${area.area}, ${area.city}` : area.city}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Workshop address */}
+          {data.workshopAddress !== null && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Workshop</Text>
+              <View style={styles.workshopRow}>
+                <IconSymbol name="building.2" size={14} color={colors.textLow} />
+                <Text style={styles.workshopText}>
+                  {data.workshopAddress.line1}, {data.workshopAddress.area !== null ? `${data.workshopAddress.area}, ` : ''}{data.workshopAddress.city}
+                </Text>
+              </View>
+              {data.workshopAddress.phone !== null && (
+                <View style={styles.workshopRow}>
+                  <IconSymbol name="phone" size={14} color={colors.textLow} />
+                  <Text style={styles.workshopText}>{data.workshopAddress.phone}</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Quick links */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Account</Text>
-            <Pressable style={styles.linkRow} onPress={handleBrowseMarketplace}>
+            <Pressable style={styles.linkRow} onPress={handleGoCalendar}>
+              <Text style={styles.linkText}>Calendar & Capacity</Text>
+              <IconSymbol name="chevron.right" size={16} color={colors.textLow} />
+            </Pressable>
+            <Pressable style={[styles.linkRow, { borderBottomWidth: 0 }]} onPress={handleBrowseMarketplace}>
               <Text style={styles.linkText}>Browse Marketplace</Text>
               <IconSymbol name="chevron.right" size={16} color={colors.textLow} />
             </Pressable>

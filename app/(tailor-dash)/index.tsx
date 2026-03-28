@@ -22,7 +22,6 @@ import {
   ErrorBanner,
   SectionHeader,
   Skeleton,
-  Tag,
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { formatPkr } from '@shared/utils';
@@ -61,23 +60,17 @@ function statusVariant(
   return 'warning';
 }
 
-function tierVariant(tier: 'standard' | 'premium' | 'master'): 'default' | 'accent' | 'warning' {
-  if (tier === 'master') return 'warning';
-  if (tier === 'premium') return 'accent';
-  return 'default';
-}
+// ─── Order Card ───────────────────────────────────────────────────────────────
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-interface RecentOrderCardProps {
+interface OrderCardProps {
   order: TailorOrderItem;
   onPress: (id: string) => void;
 }
 
-const RecentOrderCard = React.memo(function RecentOrderCard({
+const OrderCard = React.memo(function OrderCard({
   order,
   onPress,
-}: RecentOrderCardProps): React.JSX.Element {
+}: OrderCardProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
 
   const handlePress = useCallback(() => {
@@ -176,7 +169,7 @@ function TailorOverviewSkeleton(): React.JSX.Element {
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
       <View style={styles.kpiRow}>
-        {[0, 1, 2, 3, 4].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <View key={i} style={styles.kpiCard} />
         ))}
       </View>
@@ -210,8 +203,13 @@ export default function TailorOverviewScreen(): React.JSX.Element {
     [router],
   );
 
-  const renderRecentOrder = useCallback<ListRenderItem<TailorOrderItem>>(
-    ({ item }) => <RecentOrderCard order={item} onPress={handleOrderPress} />,
+  const renderNewOrder = useCallback<ListRenderItem<TailorOrderItem>>(
+    ({ item }) => <OrderCard order={item} onPress={handleOrderPress} />,
+    [handleOrderPress],
+  );
+
+  const renderActiveOrder = useCallback<ListRenderItem<TailorOrderItem>>(
+    ({ item }) => <OrderCard order={item} onPress={handleOrderPress} />,
     [handleOrderPress],
   );
 
@@ -241,16 +239,20 @@ export default function TailorOverviewScreen(): React.JSX.Element {
       color: colors.textMid,
       marginTop: 2,
     },
-    tierRow: { flexDirection: 'row', alignItems: 'center', marginTop: sp.xs, gap: sp.xs },
     banner: {
       marginHorizontal: sp.base,
       marginTop: sp.md,
       borderRadius: r.md,
       padding: sp.md,
+      gap: sp.xs,
     },
-    bannerText: {
+    bannerTitle: {
       ...typo.scale.bodySmall,
-      fontFamily: typo.fonts.sansMed,
+      fontFamily: typo.fonts.sansBold,
+    },
+    bannerMsg: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
     },
     kpiGrid: {
       flexDirection: 'row',
@@ -289,18 +291,10 @@ export default function TailorOverviewScreen(): React.JSX.Element {
       <View style={styles.headerLeft}>
         <Text style={styles.greeting}>Hello, {firstName}</Text>
         <Text style={styles.subtitle}>Tailor Dashboard</Text>
-        {data?.profile !== undefined && (
-          <View style={styles.tierRow}>
-            <Tag
-              label={data.profile.tier.toUpperCase()}
-              variant={tierVariant(data.profile.tier)}
-            />
-          </View>
-        )}
       </View>
       <Avatar
-        uri={data?.profile?.avatarUrl ?? undefined}
-        name={data?.profile?.name ?? authUser?.name}
+        uri={authUser?.avatarUrl ?? undefined}
+        name={authUser?.name}
         size={40}
       />
     </View>
@@ -315,7 +309,7 @@ export default function TailorOverviewScreen(): React.JSX.Element {
     );
   }
 
-  if (isError || data === undefined || data.profile === undefined || data.stats === undefined || data.recentOrders === undefined) {
+  if (isError || data === undefined) {
     return (
       <View style={styles.screen}>
         {header}
@@ -329,7 +323,7 @@ export default function TailorOverviewScreen(): React.JSX.Element {
     );
   }
 
-  const profileStatus = data.profile.status;
+  const approvalStatus = data.approval.status;
 
   const kpiItems = [
     {
@@ -349,13 +343,8 @@ export default function TailorOverviewScreen(): React.JSX.Element {
     },
     {
       icon: 'star.fill' as const,
-      value: `${(data.stats.averageRating ?? 0).toFixed(1)} \u2605`,
+      value: `${data.stats.rating.toFixed(1)} \u2605`,
       label: 'Rating',
-    },
-    {
-      icon: 'clock.fill' as const,
-      value: String(data.stats.pendingRequests),
-      label: 'Pending',
     },
   ];
 
@@ -367,26 +356,67 @@ export default function TailorOverviewScreen(): React.JSX.Element {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Status banner */}
-        {profileStatus === 'pending' && (
-          <View style={[styles.banner, { backgroundColor: colors.warningSubtle }]}>
-            <Text style={[styles.bannerText, { color: colors.warning }]}>
+        {/* Approval status banners */}
+        {approvalStatus === 'pending' && (
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: colors.warningSubtle, borderWidth: 1, borderColor: colors.warning },
+            ]}
+          >
+            <Text style={[styles.bannerTitle, { color: colors.warning }]}>
+              Profile Under Review
+            </Text>
+            <Text style={[styles.bannerMsg, { color: colors.textMid }]}>
               Your profile is under review. You will be notified once approved.
             </Text>
           </View>
         )}
-        {profileStatus === 'suspended' && (
-          <View style={[styles.banner, { backgroundColor: colors.errorSubtle }]}>
-            <Text style={[styles.bannerText, { color: colors.error }]}>
-              Account suspended. Contact support for assistance.
+        {approvalStatus === 'in_review' && (
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: colors.infoSubtle, borderWidth: 1, borderColor: colors.info },
+            ]}
+          >
+            <Text style={[styles.bannerTitle, { color: colors.info }]}>
+              Being Reviewed
+            </Text>
+            <Text style={[styles.bannerMsg, { color: colors.textMid }]}>
+              Profile is being reviewed by admin.
             </Text>
           </View>
         )}
-        {profileStatus === 'in_review' && (
-          <View style={[styles.banner, { backgroundColor: colors.infoSubtle }]}>
-            <Text style={[styles.bannerText, { color: colors.info }]}>
-              Profile being reviewed by admin.
+        {approvalStatus === 'suspended' && (
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: colors.errorSubtle, borderWidth: 1, borderColor: colors.error },
+            ]}
+          >
+            <Text style={[styles.bannerTitle, { color: colors.error }]}>
+              Account Suspended
             </Text>
+            <Text style={[styles.bannerMsg, { color: colors.textMid }]}>
+              Your account has been suspended. Contact support for assistance.
+            </Text>
+          </View>
+        )}
+        {approvalStatus === 'rejected' && (
+          <View
+            style={[
+              styles.banner,
+              { backgroundColor: colors.errorSubtle, borderWidth: 1, borderColor: colors.error },
+            ]}
+          >
+            <Text style={[styles.bannerTitle, { color: colors.error }]}>
+              Application Rejected
+            </Text>
+            {data.approval.rejectedReason !== null && (
+              <Text style={[styles.bannerMsg, { color: colors.textMid }]}>
+                {data.approval.rejectedReason}
+              </Text>
+            )}
           </View>
         )}
 
@@ -401,23 +431,46 @@ export default function TailorOverviewScreen(): React.JSX.Element {
           ))}
         </View>
 
-        {/* Recent orders */}
+        {/* New orders — fabric arrived, awaiting work start */}
         <View style={styles.section}>
           <SectionHeader
-            title="Recent Orders"
+            title="New Orders"
+            subtitle={`${data.newOrders.length} awaiting start`}
             action={{ label: 'See all', onPress: () => router.push('/(tailor-dash)/orders' as never) }}
           />
-          {data.recentOrders.length === 0 ? (
+          {data.newOrders.length === 0 ? (
             <EmptyState
               icon={<IconSymbol name="shippingbox.fill" size={32} color={colors.textLow} />}
-              title="No recent orders"
-              message="Your assigned orders will appear here."
+              title="No new orders"
+              message="Orders assigned to you will appear here."
             />
           ) : (
             <FlatList
-              data={data.recentOrders}
+              data={data.newOrders}
               keyExtractor={(item) => item._id}
-              renderItem={renderRecentOrder}
+              renderItem={renderNewOrder}
+              scrollEnabled={false}
+            />
+          )}
+        </View>
+
+        {/* Active orders — currently being stitched */}
+        <View style={styles.section}>
+          <SectionHeader
+            title="Active Orders"
+            subtitle={`${data.activeOrders.length} in progress`}
+          />
+          {data.activeOrders.length === 0 ? (
+            <EmptyState
+              icon={<IconSymbol name="scissors" size={32} color={colors.textLow} />}
+              title="Nothing in progress"
+              message="Orders you are currently stitching will appear here."
+            />
+          ) : (
+            <FlatList
+              data={data.activeOrders}
+              keyExtractor={(item) => item._id}
+              renderItem={renderActiveOrder}
               scrollEnabled={false}
             />
           )}
