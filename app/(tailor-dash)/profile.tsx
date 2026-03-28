@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,10 +11,10 @@ import {
 import { useRouter } from 'expo-router';
 
 import {
-  useGetTailorProfileQuery,
+  useGetTailorMeQuery,
   useUpdateTailorProfileMutation,
 } from '@services/tailorDashApi';
-import type { TailorProfileData } from '@services/tailorDashApi';
+import type { TailorPortfolioEntry, TailorProfileData } from '@services/tailorDashApi';
 import { useAppSelector } from '@store/index';
 import { useTheme } from '@shared/theme';
 import { useSignOut } from '@shared/hooks/useSignOut';
@@ -21,14 +22,14 @@ import {
   Avatar,
   Button,
   ErrorBanner,
-  ScreenHeader,
   Skeleton,
   Tag,
 } from '@shared/components/ui';
+import { DashHeader } from '@shared/components/DashHeader';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { formatPkr } from '@shared/utils';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const ALL_SPECIALISATIONS = [
   'shalwar_kameez',
@@ -39,10 +40,29 @@ const ALL_SPECIALISATIONS = [
   'kids',
 ] as const;
 
-type Specialisation = typeof ALL_SPECIALISATIONS[number];
+type Specialisation = (typeof ALL_SPECIALISATIONS)[number];
+
+const GENDER_LABELS: Record<string, string> = {
+  male: 'Men',
+  female: 'Women',
+  kids: 'Kids',
+};
 
 function formatSpec(s: string): string {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatCategorySlug(slug: string): string {
+  const parts = slug.split('_');
+  const last = parts[parts.length - 1] ?? '';
+  if (last in GENDER_LABELS) {
+    const base = parts
+      .slice(0, -1)
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(' ');
+    return `${base} (${GENDER_LABELS[last] ?? last})`;
+  }
+  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
 }
 
 function tierVariant(tier: 'standard' | 'premium' | 'master'): 'default' | 'accent' | 'warning' {
@@ -51,7 +71,155 @@ function tierVariant(tier: 'standard' | 'premium' | 'master'): 'default' | 'acce
   return 'default';
 }
 
-// ─── Specialisations section ──────────────────────────────────────────────────
+// ─── Portfolio strip ──────────────────────────────────────────────────────────
+
+interface PortfolioStripProps {
+  items: TailorPortfolioEntry[];
+}
+
+const PortfolioStrip = React.memo(function PortfolioStrip({
+  items,
+}: PortfolioStripProps): React.JSX.Element {
+  const { colors, sp, r, typo } = useTheme();
+
+  const styles = StyleSheet.create({
+    card: {
+      backgroundColor: colors.elevated,
+      borderRadius: r.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: sp.md,
+      marginBottom: sp.md,
+    },
+    sectionTitle: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.textMid,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: sp.sm,
+    },
+    strip: { gap: sp.sm },
+    item: { width: 140 },
+    thumb: {
+      width: 140,
+      height: 140,
+      borderRadius: r.md,
+      backgroundColor: colors.panel,
+      marginBottom: sp.xs,
+    },
+    caption: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+    },
+  });
+
+  if (items.length === 0) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Portfolio</Text>
+        <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.textLow }]}>
+          No portfolio items yet. Add work via the web dashboard.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionTitle}>Portfolio</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+        {items.map((item) => (
+          <View key={item._id} style={styles.item}>
+            <Image source={{ uri: item.imageUrl }} style={styles.thumb} resizeMode="cover" />
+            {item.caption !== null && item.caption.length > 0 && (
+              <Text style={styles.caption} numberOfLines={2}>
+                {item.caption}
+              </Text>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+});
+
+// ─── Category pricing card ────────────────────────────────────────────────────
+
+interface CategoryPricingCardProps {
+  items: TailorProfileData['categoryPricing'];
+}
+
+const CategoryPricingCard = React.memo(function CategoryPricingCard({
+  items,
+}: CategoryPricingCardProps): React.JSX.Element {
+  const { colors, sp, r, typo, elev } = useTheme();
+
+  const styles = StyleSheet.create({
+    card: {
+      backgroundColor: colors.elevated,
+      borderRadius: r.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: sp.md,
+      marginBottom: sp.md,
+      ...elev.low,
+    },
+    sectionTitle: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.textMid,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginBottom: sp.sm,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: sp.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    lastRow: {
+      borderBottomWidth: 0,
+    },
+    label: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sans,
+      color: colors.textHigh,
+    },
+    price: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.accent,
+    },
+    empty: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textLow,
+    },
+  });
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionTitle}>Category Pricing</Text>
+      {items.length === 0 ? (
+        <Text style={styles.empty}>No category pricing set. Configure via web dashboard.</Text>
+      ) : (
+        items.map((cp, idx) => (
+          <View key={cp.garmentCategoryId} style={[styles.row, idx === items.length - 1 && styles.lastRow]}>
+            <Text style={styles.label}>{formatCategorySlug(cp.garmentCategorySlug)}</Text>
+            <Text style={styles.price}>{formatPkr(cp.price)}</Text>
+          </View>
+        ))
+      )}
+    </View>
+  );
+});
+
+// ─── Specialisations (editable) ───────────────────────────────────────────────
 
 interface SpecialisationsSectionProps {
   current: string[];
@@ -154,18 +322,12 @@ function SpecialisationsSection({ current }: SpecialisationsSectionProps): React
           );
         })}
       </View>
-      <Button
-        label="Save Specialisations"
-        onPress={handleSave}
-        loading={isSaving}
-        variant="primary"
-        fullWidth
-      />
+      <Button label="Save Specialisations" onPress={handleSave} loading={isSaving} variant="primary" fullWidth />
     </View>
   );
 }
 
-// ─── Profile skeleton ─────────────────────────────────────────────────────────
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function ProfileSkeleton(): React.JSX.Element {
   const { sp, r, colors } = useTheme();
@@ -176,7 +338,6 @@ function ProfileSkeleton(): React.JSX.Element {
       borderRadius: r.md,
       borderWidth: 1,
       borderColor: colors.border,
-      height: 96,
       marginBottom: sp.md,
     },
     content: { padding: sp.base, gap: sp.md, marginTop: sp.base },
@@ -185,10 +346,11 @@ function ProfileSkeleton(): React.JSX.Element {
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
       <View style={styles.content}>
-        <View style={styles.card} />
-        <Skeleton width="100%" height={80} radius={r.md} />
+        <View style={[styles.card, { height: 96 }]} />
+        <Skeleton width="100%" height={56} radius={r.md} />
         <Skeleton width="100%" height={160} radius={r.md} />
         <Skeleton width="100%" height={120} radius={r.md} />
+        <Skeleton width="100%" height={100} radius={r.md} />
       </View>
     </ScrollView>
   );
@@ -202,19 +364,21 @@ export default function TailorProfileScreen(): React.JSX.Element {
   const handleSignOut = useSignOut();
   const authUser = useAppSelector((s) => s.auth.user);
 
-  const { data, isLoading, isError, refetch } = useGetTailorProfileQuery();
-
-  const handleBrowseMarketplace = useCallback(() => {
-    router.push('/(tabs)' as never);
-  }, [router]);
+  const { data, isLoading, isError, refetch } = useGetTailorMeQuery();
 
   const handleGoCalendar = useCallback(() => {
     router.push('/(tailor-dash)/calendar' as never);
   }, [router]);
 
+  const handleBrowseMarketplace = useCallback(() => {
+    router.push('/(tabs)' as never);
+  }, [router]);
+
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
     content: { padding: sp.base, paddingBottom: sp['4xl'] },
+
+    // Identity card
     profileCard: {
       backgroundColor: colors.elevated,
       borderRadius: r.md,
@@ -233,17 +397,26 @@ export default function TailorProfileScreen(): React.JSX.Element {
       fontFamily: typo.fonts.sansBold,
       color: colors.textHigh,
     },
-    tagRow: { flexDirection: 'row', alignItems: 'center', gap: sp.xs, marginTop: sp.xs },
+    tagRow: { flexDirection: 'row', alignItems: 'center', gap: sp.xs, marginTop: sp.xs, flexWrap: 'wrap' },
     verifiedText: {
       ...typo.scale.caption,
       fontFamily: typo.fonts.sansMed,
       color: colors.success,
     },
-    statsRow: {
-      flexDirection: 'row',
-      gap: sp.sm,
-      marginBottom: sp.md,
+    availableDot: {
+      width: 8,
+      height: 8,
+      borderRadius: r.pill,
+      marginRight: sp.xs,
     },
+    availableRow: { flexDirection: 'row', alignItems: 'center', marginTop: sp.xs },
+    availableLabel: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+    },
+
+    // Stats row
+    statsRow: { flexDirection: 'row', gap: sp.sm, marginBottom: sp.md },
     statCard: {
       flex: 1,
       backgroundColor: colors.elevated,
@@ -266,6 +439,8 @@ export default function TailorProfileScreen(): React.JSX.Element {
       color: colors.textMid,
       textAlign: 'center',
     },
+
+    // Generic section card
     sectionCard: {
       backgroundColor: colors.elevated,
       borderRadius: r.md,
@@ -283,6 +458,24 @@ export default function TailorProfileScreen(): React.JSX.Element {
       letterSpacing: 1,
       marginBottom: sp.sm,
     },
+
+    // Chip rows (read-only gender chips)
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: sp.sm },
+    chip: {
+      borderWidth: 1,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.md,
+      paddingVertical: sp.xs,
+      backgroundColor: colors.accentSubtle,
+      borderColor: colors.accent,
+    },
+    chipLabel: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.accent,
+    },
+
+    // Service areas / workshop
     areaRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -306,6 +499,8 @@ export default function TailorProfileScreen(): React.JSX.Element {
       color: colors.textHigh,
       flex: 1,
     },
+
+    // Account links
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -319,13 +514,14 @@ export default function TailorProfileScreen(): React.JSX.Element {
       fontFamily: typo.fonts.sans,
       color: colors.textHigh,
     },
+
     errorContainer: { padding: sp.base, marginTop: sp.lg },
   });
 
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <ScreenHeader title="My Profile" />
+        <DashHeader title="My Profile" subtitle="Tailor Dashboard" />
         <ProfileSkeleton />
       </View>
     );
@@ -334,12 +530,9 @@ export default function TailorProfileScreen(): React.JSX.Element {
   if (isError || data === undefined) {
     return (
       <View style={styles.screen}>
-        <ScreenHeader title="My Profile" />
+        <DashHeader title="My Profile" subtitle="Tailor Dashboard" />
         <View style={styles.errorContainer}>
-          <ErrorBanner
-            message="Could not load profile. Please try again."
-            onRetry={refetch}
-          />
+          <ErrorBanner message="Could not load profile. Please try again." onRetry={refetch} />
         </View>
       </View>
     );
@@ -347,72 +540,79 @@ export default function TailorProfileScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="My Profile" />
+      <DashHeader title="My Profile" subtitle="Tailor Dashboard" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
 
-          {/* Identity card */}
+          {/* ── Identity card ─────────────────────────────────────────────── */}
           <View style={styles.profileCard}>
-            <Avatar
-              uri={authUser?.avatarUrl ?? undefined}
-              name={authUser?.name}
-              size={56}
-            />
+            <Avatar uri={authUser?.avatarUrl ?? undefined} name={authUser?.name} size={56} />
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{authUser?.name ?? '—'}</Text>
               <View style={styles.tagRow}>
-                <Tag
-                  label={data.tier.toUpperCase()}
-                  variant={tierVariant(data.tier)}
+                <Tag label={data.tier.toUpperCase()} variant={tierVariant(data.tier)} />
+                {data.isVerified && <Text style={styles.verifiedText}>✓ Verified</Text>}
+              </View>
+              <View style={styles.availableRow}>
+                <View
+                  style={[
+                    styles.availableDot,
+                    { backgroundColor: data.isAvailable ? colors.success : colors.textLow },
+                  ]}
                 />
-                {data.isVerified && (
-                  <Text style={styles.verifiedText}>✓ Verified</Text>
-                )}
+                <Text
+                  style={[
+                    styles.availableLabel,
+                    { color: data.isAvailable ? colors.success : colors.textLow },
+                  ]}
+                >
+                  {data.isAvailable ? 'Accepting orders' : 'Not accepting orders'}
+                </Text>
               </View>
             </View>
           </View>
 
-          {/* Stats row */}
+          {/* ── Stats ─────────────────────────────────────────────────────── */}
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{data.rating.toFixed(1)} ★</Text>
-              <Text style={styles.statLabel}>Rating</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{data.reviewCount}</Text>
-              <Text style={styles.statLabel}>Reviews</Text>
-            </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{data.completedOrders}</Text>
               <Text style={styles.statLabel}>Completed</Text>
             </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{data.currentLoad}</Text>
+              <Text style={styles.statLabel}>Active Orders</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statValue}>{data.weeklyCapacity}</Text>
+              <Text style={styles.statLabel}>Weekly Cap</Text>
+            </View>
           </View>
 
-          {/* Specialisations */}
+          {/* ── Portfolio ─────────────────────────────────────────────────── */}
+          <PortfolioStrip items={data.portfolio} />
+
+          {/* ── Genders served (read-only) ────────────────────────────────── */}
+          {data.gendersServed.length > 0 && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Genders Served</Text>
+              <View style={styles.chipRow}>
+                {data.gendersServed.map((g) => (
+                  <View key={g} style={styles.chip}>
+                    <Text style={styles.chipLabel}>{GENDER_LABELS[g] ?? g}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ── Specialisations (editable) ────────────────────────────────── */}
           <SpecialisationsSection current={data.specialisations} />
 
-          {/* Pricing */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Pricing</Text>
-            {(
-              [
-                ['Shalwar Kameez', data.pricing.shalwarKameez],
-                ['Suit', data.pricing.suit],
-                ['Bridal', data.pricing.bridal],
-                ['Custom', data.pricing.custom],
-              ] as Array<[string, number]>
-            ).map(([label, price]) => (
-              <View key={label} style={[styles.areaRow, { justifyContent: 'space-between' }]}>
-                <Text style={styles.areaText}>{label}</Text>
-                <Text style={[styles.areaText, { color: colors.accent, fontFamily: typo.fonts.sansBold }]}>
-                  {formatPkr(price)}
-                </Text>
-              </View>
-            ))}
-          </View>
+          {/* ── Category pricing ──────────────────────────────────────────── */}
+          <CategoryPricingCard items={data.categoryPricing} />
 
-          {/* Service areas */}
+          {/* ── Service areas ─────────────────────────────────────────────── */}
           {data.serviceAreas.length > 0 && (
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Service Areas</Text>
@@ -427,14 +627,16 @@ export default function TailorProfileScreen(): React.JSX.Element {
             </View>
           )}
 
-          {/* Workshop address */}
+          {/* ── Workshop address ──────────────────────────────────────────── */}
           {data.workshopAddress !== null && (
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Workshop</Text>
               <View style={styles.workshopRow}>
                 <IconSymbol name="building.2" size={14} color={colors.textLow} />
                 <Text style={styles.workshopText}>
-                  {data.workshopAddress.line1}, {data.workshopAddress.area !== null ? `${data.workshopAddress.area}, ` : ''}{data.workshopAddress.city}
+                  {data.workshopAddress.line1}
+                  {data.workshopAddress.area !== null ? `, ${data.workshopAddress.area}` : ''}
+                  {`, ${data.workshopAddress.city}`}
                 </Text>
               </View>
               {data.workshopAddress.phone !== null && (
@@ -446,7 +648,7 @@ export default function TailorProfileScreen(): React.JSX.Element {
             </View>
           )}
 
-          {/* Quick links */}
+          {/* ── Account links ─────────────────────────────────────────────── */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Account</Text>
             <Pressable style={styles.linkRow} onPress={handleGoCalendar}>
@@ -459,13 +661,8 @@ export default function TailorProfileScreen(): React.JSX.Element {
             </Pressable>
           </View>
 
-          {/* Logout */}
-          <Button
-            label="Log Out"
-            onPress={handleSignOut}
-            variant="danger"
-            fullWidth
-          />
+          {/* ── Logout ────────────────────────────────────────────────────── */}
+          <Button label="Log Out" onPress={handleSignOut} variant="danger" fullWidth />
 
         </View>
       </ScrollView>

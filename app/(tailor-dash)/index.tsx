@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { useGetTailorDashboardQuery } from '@services/tailorDashApi';
@@ -16,7 +15,6 @@ import type { TailorOrderItem, OrderStatus } from '@services/tailorDashApi';
 import { useAppSelector } from '@store/index';
 import { useTheme } from '@shared/theme';
 import {
-  Avatar,
   Badge,
   EmptyState,
   ErrorBanner,
@@ -25,6 +23,7 @@ import {
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { formatPkr } from '@shared/utils';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -188,7 +187,6 @@ function TailorOverviewSkeleton(): React.JSX.Element {
 
 export default function TailorOverviewScreen(): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const authUser = useAppSelector((s) => s.auth.user);
 
@@ -215,30 +213,6 @@ export default function TailorOverviewScreen(): React.JSX.Element {
 
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      backgroundColor: colors.navSolid,
-      paddingTop: insets.top + sp.sm,
-      paddingHorizontal: sp.base,
-      paddingBottom: sp.md,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      ...elev.high,
-    },
-    headerLeft: { flex: 1 },
-    greeting: {
-      ...typo.scale.title3,
-      fontFamily: typo.fonts.serifBold,
-      color: colors.textHigh,
-    },
-    subtitle: {
-      ...typo.scale.caption,
-      fontFamily: typo.fonts.sans,
-      color: colors.textMid,
-      marginTop: 2,
-    },
     banner: {
       marginHorizontal: sp.base,
       marginTop: sp.md,
@@ -286,24 +260,10 @@ export default function TailorOverviewScreen(): React.JSX.Element {
     errorContainer: { padding: sp.base, marginTop: sp.lg },
   });
 
-  const header = (
-    <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <Text style={styles.greeting}>Hello, {firstName}</Text>
-        <Text style={styles.subtitle}>Tailor Dashboard</Text>
-      </View>
-      <Avatar
-        uri={authUser?.avatarUrl ?? undefined}
-        name={authUser?.name}
-        size={40}
-      />
-    </View>
-  );
-
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        {header}
+        <DashHeader title={`Hello, ${firstName}`} subtitle="Tailor Dashboard" />
         <TailorOverviewSkeleton />
       </View>
     );
@@ -312,7 +272,7 @@ export default function TailorOverviewScreen(): React.JSX.Element {
   if (isError || data === undefined) {
     return (
       <View style={styles.screen}>
-        {header}
+        <DashHeader title={`Hello, ${firstName}`} subtitle="Tailor Dashboard" />
         <View style={styles.errorContainer}>
           <ErrorBanner
             message="Could not load your dashboard. Please try again."
@@ -350,7 +310,7 @@ export default function TailorOverviewScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      {header}
+      <DashHeader title={`Hello, ${firstName}`} subtitle="Tailor Dashboard" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

@@ -94,9 +94,11 @@ export default function HomeScreen() {
 
         {/* Actions */}
         <View style={styles.headerActions}>
-          <Pressable hitSlop={8}>
-            <IconSymbol name="bell" size={22} color={colors.textHigh} />
-          </Pressable>
+          {user !== null && (
+            <Pressable hitSlop={8}>
+              <IconSymbol name="bell" size={22} color={colors.textHigh} />
+            </Pressable>
+          )}
           <Pressable onPress={() => router.push('/cart' as any)} hitSlop={8}>
             <IconSymbol name="bag" size={22} color={colors.textHigh} />
           </Pressable>

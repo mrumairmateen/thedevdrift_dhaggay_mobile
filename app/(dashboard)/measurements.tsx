@@ -29,7 +29,7 @@ import {
   Skeleton,
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -867,7 +867,7 @@ export default function MeasurementsScreen(): React.JSX.Element {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <DashboardHeader title="My Measurements" showBack={false} />
+      <DashHeader title="My Measurements" subtitle="Customer Dashboard" />
 
       {/* Sub-header: count badge + Add New button */}
       <View style={styles.headerBar}>

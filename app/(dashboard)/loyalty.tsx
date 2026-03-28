@@ -12,7 +12,7 @@ import { useGetLoyaltyDataQuery, useGetReferralDataQuery } from '@services/loyal
 import { useTheme } from '@shared/theme';
 import { ErrorBanner, SectionHeader, Skeleton } from '@shared/components/ui';
 
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 import { LoyaltyBalanceHero } from '@features/dashboard/components/loyalty/LoyaltyBalanceHero';
 import { ReferralCard } from '@features/dashboard/components/loyalty/ReferralCard';
 import { TransactionRow } from '@features/dashboard/components/loyalty/TransactionRow';
@@ -92,7 +92,7 @@ export default function LoyaltyScreen(): React.JSX.Element {
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Loyalty Rewards" showBack={false} />
+        <DashHeader title="Loyalty Rewards" subtitle="Customer Dashboard" />
         <LoyaltySkeleton />
       </View>
     );
@@ -101,7 +101,7 @@ export default function LoyaltyScreen(): React.JSX.Element {
   if (isError) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Loyalty Rewards" showBack={false} />
+        <DashHeader title="Loyalty Rewards" subtitle="Customer Dashboard" />
         <View style={{ padding: sp.base, marginTop: sp.lg }}>
           <ErrorBanner
             message="Could not load loyalty data. Please try again."
@@ -116,7 +116,7 @@ export default function LoyaltyScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="Loyalty Rewards" showBack={false} />
+      <DashHeader title="Loyalty Rewards" subtitle="Customer Dashboard" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

@@ -50,7 +50,15 @@ export default function TailorDashLayout(): React.JSX.Element | null {
           ),
         }}
       />
-      <Tabs.Screen name="portfolio" options={{ href: null }} />
+      <Tabs.Screen
+        name="portfolio"
+        options={{
+          title: 'Portfolio',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol name="photo.on.rectangle" size={22} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{

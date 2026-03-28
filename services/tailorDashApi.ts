@@ -210,13 +210,162 @@ export interface UpdateCalendarPayload {
   eidOptIn?: boolean;
 }
 
+// ─── Raw API shapes (as returned by /dashboard/tailor) ───────────────────────
+
+interface RawDashOrderImage {
+  url: string;
+  publicId: string;
+  _id: string;
+}
+
+interface RawDashOrderProduct {
+  _id: string;
+  title: string;
+  images: RawDashOrderImage[];
+}
+
+interface RawDashOrderDesign {
+  _id: string;
+  title: string;
+}
+
+interface RawDashOrderMeasurement {
+  _id: string;
+  label: string;
+  chest: number;
+  waist: number;
+  hips: number;
+  shoulder: number;
+  length: number;
+  sleeveLength: number;
+  customNotes?: string;
+}
+
+interface RawDashOrderItem {
+  _id: string;
+  productId: RawDashOrderProduct;
+  designId: RawDashOrderDesign;
+  measurementSnapshot: RawDashOrderMeasurement;
+  pricing: { fabricPrice: number; stitchingFee: number; platformFee: number };
+}
+
+interface RawDashOrder {
+  _id: string;
+  orderId: string;
+  customerId: { _id: string; name: string };
+  items: RawDashOrderItem[];
+  status: OrderStatus;
+  estimatedDelivery?: string | null;
+  createdAt: string;
+}
+
+interface RawTailorDashboard {
+  approval: TailorDashboard['approval'];
+  stats: TailorDashboard['stats'];
+  newOrders: RawDashOrder[];
+  activeOrders: RawDashOrder[];
+}
+
+function mapMeasurements(
+  ms: RawDashOrderMeasurement,
+): Record<string, number> {
+  return {
+    chest: ms.chest,
+    waist: ms.waist,
+    hips: ms.hips,
+    shoulder: ms.shoulder,
+    length: ms.length,
+    sleeveLength: ms.sleeveLength,
+  };
+}
+
+function mapDashOrder(raw: RawDashOrder): TailorOrderItem {
+  const item = raw.items[0];
+  const ms = item?.measurementSnapshot;
+  return {
+    _id: raw._id,
+    orderNumber: raw.orderId,
+    customerName: raw.customerId.name,
+    productTitle: item?.productId.title ?? '',
+    productImage: item?.productId.images[0]?.url ?? null,
+    designTitle: item?.designId.title ?? null,
+    status: raw.status,
+    stitchingFee: item?.pricing.stitchingFee ?? 0,
+    deadline: raw.estimatedDelivery ?? null,
+    measurements: ms !== undefined ? mapMeasurements(ms) : null,
+    notes: ms?.customNotes ?? null,
+    deliveryAddress: null,
+    statusHistory: [],
+    placedAt: raw.createdAt,
+  };
+}
+
+// ─── Raw detail shape (GET /orders/:id — richer than list response) ───────────
+
+interface RawDashOrderDetailHistory {
+  status: string;
+  changedBy: string;
+  _id: string;
+  changedAt: string;
+  note?: string;
+}
+
+interface RawDashOrderDetailAddress {
+  line1: string;
+  city: string;
+  area?: string;
+  phone?: string;
+}
+
+interface RawDashOrderDetail {
+  _id: string;
+  orderId: string;
+  customerId: { _id: string; name: string; phone: string };
+  items: RawDashOrderItem[];
+  status: OrderStatus;
+  statusHistory: RawDashOrderDetailHistory[];
+  estimatedDelivery?: string | null;
+  deliveryAddress?: RawDashOrderDetailAddress;
+  createdAt: string;
+}
+
+function mapDashOrderDetail(raw: RawDashOrderDetail): TailorOrderItem {
+  const item = raw.items[0];
+  const ms = item?.measurementSnapshot;
+  return {
+    _id: raw._id,
+    orderNumber: raw.orderId,
+    customerName: raw.customerId.name,
+    productTitle: item?.productId.title ?? '',
+    productImage: item?.productId.images[0]?.url ?? null,
+    designTitle: item?.designId.title ?? null,
+    status: raw.status,
+    stitchingFee: item?.pricing.stitchingFee ?? 0,
+    deadline: raw.estimatedDelivery ?? null,
+    measurements: ms !== undefined ? mapMeasurements(ms) : null,
+    notes: ms?.customNotes ?? null,
+    deliveryAddress: raw.deliveryAddress ?? null,
+    statusHistory: raw.statusHistory.map((h) => ({
+      status: h.status,
+      changedAt: h.changedAt,
+      ...(h.note !== undefined && { note: h.note }),
+    })),
+    placedAt: raw.createdAt,
+  };
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export const tailorDashApi = api.injectEndpoints({
   endpoints: (build) => ({
     getTailorDashboard: build.query<TailorDashboard, void>({
       query: () => '/dashboard/tailor',
-      transformResponse: (res: ApiResponse<TailorDashboard>) => res.data,
+      transformResponse: (res: ApiResponse<RawTailorDashboard>): TailorDashboard => ({
+        approval: res.data.approval,
+        stats: res.data.stats,
+        newOrders: res.data.newOrders.map(mapDashOrder),
+        activeOrders: res.data.activeOrders.map(mapDashOrder),
+      }),
       providesTags: ['TailorOrder'],
     }),
 
@@ -228,13 +377,16 @@ export const tailorDashApi = api.injectEndpoints({
         }
         return { url: '/dashboard/tailor/orders', params };
       },
-      transformResponse: (res: ApiResponse<PaginatedTailorOrders>) => res.data,
+      transformResponse: (res: ApiResponse<{ orders: RawDashOrder[] }>): PaginatedTailorOrders => ({
+        orders: res.data.orders.map(mapDashOrder),
+      }),
       providesTags: ['TailorOrder'],
     }),
 
     getTailorOrderById: build.query<TailorOrderItem, string>({
       query: (id) => `/orders/${id}`,
-      transformResponse: (res: ApiResponse<TailorOrderItem>) => res.data,
+      transformResponse: (res: ApiResponse<RawDashOrderDetail>): TailorOrderItem =>
+        mapDashOrderDetail(res.data),
       providesTags: (_result, _error, id) => [{ type: 'TailorOrder', id }],
     }),
 
@@ -264,6 +416,13 @@ export const tailorDashApi = api.injectEndpoints({
 
     getTailorProfile: build.query<TailorProfileData, void>({
       query: () => '/dashboard/tailor/profile',
+      transformResponse: (res: ApiResponse<TailorProfileData>) => res.data,
+      providesTags: ['TailorOrder'],
+    }),
+
+    /** Public-style tailor profile — used for portfolio & accounts tabs */
+    getTailorMe: build.query<TailorProfileData, void>({
+      query: () => '/tailors/me',
       transformResponse: (res: ApiResponse<TailorProfileData>) => res.data,
       providesTags: ['TailorOrder'],
     }),
@@ -302,6 +461,7 @@ export const {
   useGetTailorOrderByIdQuery,
   useUpdateOrderMilestoneMutation,
   useGetTailorProfileQuery,
+  useGetTailorMeQuery,
   useGetEarningsQuery,
   useGetTailorCalendarQuery,
   useUpdateCalendarMutation,

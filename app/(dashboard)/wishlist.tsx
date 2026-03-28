@@ -13,7 +13,7 @@ import { useTheme } from '@shared/theme';
 import { EmptyState, ErrorBanner, Skeleton } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 import { WishlistTabBar } from '@features/dashboard/components/wishlist/WishlistTabBar';
 import { WishlistFabricCard } from '@features/dashboard/components/wishlist/WishlistFabricCard';
 import { WishlistDesignCard } from '@features/dashboard/components/wishlist/WishlistDesignCard';
@@ -76,7 +76,7 @@ export default function WishlistScreen(): React.JSX.Element {
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Wishlist" showBack={false} />
+        <DashHeader title="Wishlist" subtitle="Customer Dashboard" />
         <WishlistTabBar
           active={activeTab}
           onChange={handleTabChange}
@@ -93,7 +93,7 @@ export default function WishlistScreen(): React.JSX.Element {
   if (isError) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Wishlist" showBack={false} />
+        <DashHeader title="Wishlist" subtitle="Customer Dashboard" />
         <View style={{ padding: sp.base, marginTop: sp.lg }}>
           <ErrorBanner
             message="Could not load your wishlist. Please try again."
@@ -106,7 +106,7 @@ export default function WishlistScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="Wishlist" showBack={false} />
+      <DashHeader title="Wishlist" subtitle="Customer Dashboard" />
 
       <WishlistTabBar
         active={activeTab}

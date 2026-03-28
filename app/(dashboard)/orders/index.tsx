@@ -18,7 +18,7 @@ import {
   Skeleton,
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 import { OrderListItem } from '@features/dashboard/components/orders/OrderListItem';
 import type { Order, OrderStatus } from '@features/dashboard/dashboard.types';
 
@@ -123,7 +123,7 @@ export default function OrdersScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="My Orders" showBack={false} />
+      <DashHeader title="My Orders" subtitle="Customer Dashboard" />
 
       {/* Filter tabs */}
       <ScrollView

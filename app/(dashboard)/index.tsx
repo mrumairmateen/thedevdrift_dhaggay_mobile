@@ -6,19 +6,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { useGetCustomerDashboardQuery } from '@services/dashboardApi';
 import { useAppSelector } from '@store/index';
 import { useTheme } from '@shared/theme';
 import {
-  Avatar,
   EmptyState,
   ErrorBanner,
   SectionHeader,
   Skeleton,
 } from '@shared/components/ui';
+import { DashHeader } from '@shared/components/DashHeader';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 
 import { ActiveOrderCard } from '@features/dashboard/components/overview/ActiveOrderCard';
@@ -107,7 +106,6 @@ function DashboardSkeleton(): React.JSX.Element {
 
 export default function DashboardOverviewScreen(): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const authUser = useAppSelector((s) => s.auth.user);
 
@@ -149,29 +147,6 @@ export default function DashboardOverviewScreen(): React.JSX.Element {
 
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      backgroundColor: colors.navSolid,
-      paddingTop: insets.top + sp.sm,
-      paddingHorizontal: sp.base,
-      paddingBottom: sp.md,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      ...elev.high,
-    },
-    greeting: {
-      ...typo.scale.title3,
-      fontFamily: typo.fonts.serifBold,
-      color: colors.textHigh,
-    },
-    subtitle: {
-      ...typo.scale.caption,
-      fontFamily: typo.fonts.sans,
-      color: colors.textMid,
-      marginTop: 2,
-    },
     statsRow: {
       flexDirection: 'row',
       gap: sp.sm,
@@ -202,25 +177,10 @@ export default function DashboardOverviewScreen(): React.JSX.Element {
     content: { paddingBottom: sp['4xl'] },
   });
 
-  // ── Header (always rendered above loading state) ───────────────────────────
-  const header = (
-    <View style={styles.header}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
-        <Text style={styles.subtitle}>Customer Dashboard</Text>
-      </View>
-      <Avatar
-        uri={data?.user?.avatarUrl ?? undefined}
-        name={data?.user?.name ?? authUser?.name}
-        size={40}
-      />
-    </View>
-  );
-
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        {header}
+        <DashHeader title={`Hello, ${firstName}`} subtitle="Customer Dashboard" />
         <DashboardSkeleton />
       </View>
     );
@@ -229,7 +189,7 @@ export default function DashboardOverviewScreen(): React.JSX.Element {
   if (isError || !data) {
     return (
       <View style={styles.screen}>
-        {header}
+        <DashHeader title={`Hello, ${firstName}`} subtitle="Customer Dashboard" />
         <View style={{ padding: sp.base, marginTop: sp.lg }}>
           <ErrorBanner
             message="Could not load your dashboard. Please try again."
@@ -265,7 +225,7 @@ export default function DashboardOverviewScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      {header}
+      <DashHeader title={`Hello, ${firstName}`} subtitle="Customer Dashboard" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}

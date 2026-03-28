@@ -14,7 +14,7 @@ import { useTheme } from '@shared/theme';
 import { ErrorBanner, Skeleton } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 import { ProfileSection } from '@features/dashboard/components/settings/ProfileSection';
 import { PasswordSection } from '@features/dashboard/components/settings/PasswordSection';
 import { NotificationToggles } from '@features/dashboard/components/settings/NotificationToggles';
@@ -124,7 +124,7 @@ export default function SettingsScreen(): React.JSX.Element {
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Settings" showBack={false} onSignOut={handleSignOut} />
+        <DashHeader title="Settings" subtitle="Customer Dashboard" />
         <SettingsSkeleton />
       </View>
     );
@@ -133,7 +133,7 @@ export default function SettingsScreen(): React.JSX.Element {
   if (isError || !profile) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Settings" showBack={false} onSignOut={handleSignOut} />
+        <DashHeader title="Settings" subtitle="Customer Dashboard" />
         <View style={{ padding: sp.base, marginTop: sp.lg }}>
           <ErrorBanner
             message="Could not load your profile. Please try again."
@@ -146,7 +146,7 @@ export default function SettingsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="Settings" showBack={false} onSignOut={handleSignOut} />
+      <DashHeader title="Settings" subtitle="Customer Dashboard" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

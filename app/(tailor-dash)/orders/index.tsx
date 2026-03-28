@@ -16,7 +16,8 @@ import {
 } from '@services/tailorDashApi';
 import type { TailorOrderItem, TailorOrderTab, OrderStatus } from '@services/tailorDashApi';
 import { useTheme } from '@shared/theme';
-import { Badge, EmptyState, ErrorBanner, Skeleton, ScreenHeader } from '@shared/components/ui';
+import { Badge, EmptyState, ErrorBanner, Skeleton } from '@shared/components/ui';
+import { DashHeader } from '@shared/components/DashHeader';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { formatPkr } from '@shared/utils';
 
@@ -276,7 +277,7 @@ export default function TailorOrdersScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="My Orders" />
+      <DashHeader title="My Orders" subtitle="Tailor Dashboard" />
 
       {/* Filter chips */}
       <ScrollView

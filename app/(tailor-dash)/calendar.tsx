@@ -18,7 +18,8 @@ import {
 } from '@services/tailorDashApi';
 import type { CalendarData } from '@services/tailorDashApi';
 import { useTheme } from '@shared/theme';
-import { ErrorBanner, ScreenHeader, Skeleton } from '@shared/components/ui';
+import { ErrorBanner, Skeleton } from '@shared/components/ui';
+import { DashHeader } from '@shared/components/DashHeader';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 
 // ─── Date format helpers ──────────────────────────────────────────────────────
@@ -735,7 +736,7 @@ export default function CalendarScreen(): React.JSX.Element {
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <ScreenHeader title="Calendar & Capacity" />
+        <DashHeader title="Calendar & Capacity" subtitle="Tailor Dashboard" />
         <CalendarSkeleton />
       </View>
     );
@@ -744,7 +745,7 @@ export default function CalendarScreen(): React.JSX.Element {
   if (isError || data === undefined) {
     return (
       <View style={styles.screen}>
-        <ScreenHeader title="Calendar & Capacity" />
+        <DashHeader title="Calendar & Capacity" subtitle="Tailor Dashboard" />
         <View style={styles.errorContainer}>
           <ErrorBanner
             message="Could not load calendar data. Please try again."
@@ -757,7 +758,7 @@ export default function CalendarScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="Calendar & Capacity" />
+      <DashHeader title="Calendar & Capacity" subtitle="Tailor Dashboard" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.content}>

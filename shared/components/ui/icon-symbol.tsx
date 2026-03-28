@@ -68,6 +68,8 @@ const MAPPING = {
   'gift.fill': 'card-giftcard',
   'person.crop.circle': 'account-circle',
   'person': 'person-outline',
+  'photo.on.rectangle': 'photo-library',
+  'gauge': 'speed',
   // Dashboard components
   'ruler.fill': 'straighten',
   'doc.on.doc.fill': 'content-copy',
