@@ -1,12 +1,15 @@
-import React, { memo, useCallback, useReducer, useState } from 'react';
+import React, { memo, useCallback, useMemo, useReducer, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import type { ListRenderItem } from 'react-native';
@@ -39,12 +42,18 @@ import type { Measurement } from '@services/measurementsApi';
 import { useAddAddressMutation, useGetAddressesQuery } from '@services/userApi';
 import type { Address } from '@features/dashboard/dashboard.types';
 import { usePlaceOrderMutation } from '@services/ordersApi';
+import type { OrderItemPayload, PlaceOrderPayload } from '@services/ordersApi';
+import { useGetDesignsQuery } from '@services/designsApi';
+import type { Design } from '@services/designsApi';
+import { useGetTailorsQuery } from '@services/tailorsApi';
+import type { Tailor } from '@services/tailorsApi';
 
 // ─── Wizard State ─────────────────────────────────────────────────────────────
 
 interface ItemConfig {
   designId?: string;
   designTitle?: string;
+  designCategory?: string;
   tailorId?: string;
   tailorName?: string;
   stitchingFee?: number;
@@ -450,7 +459,334 @@ const Step1CartReview = memo(function Step1CartReview({
   );
 });
 
-// ─── Step 2: Design & Tailor per item ────────────────────────────────────────
+// ─── Step 2: Per-item Design + Tailor pickers ────────────────────────────────
+
+// Helper: resolve display name from Tailor (userId may be populated object or string)
+function getTailorDisplayName(tailor: Tailor): string {
+  if (typeof tailor.userId === 'object' && tailor.userId !== null) {
+    return tailor.userId.name;
+  }
+  return 'Tailor';
+}
+
+// Helper: get tailor's price for a specific design category
+function getTailorPriceForCategory(tailor: Tailor, category: string): number | null {
+  const entry = tailor.categoryPricing?.find(
+    (cp) => cp.garmentCategorySlug === category,
+  );
+  return entry?.price ?? null;
+}
+
+// ── Design Picker Modal ───────────────────────────────────────────────────────
+
+interface DesignPickerModalProps {
+  visible: boolean;
+  targetGender?: string;
+  onSelect: (design: Design) => void;
+  onClose: () => void;
+}
+
+const DesignPickerModal = memo(function DesignPickerModal({
+  visible,
+  targetGender,
+  onSelect,
+  onClose,
+}: DesignPickerModalProps): React.JSX.Element {
+  const { colors, sp, r, typo } = useTheme();
+  const [search, setSearch] = useState('');
+
+  const genderParam =
+    targetGender === 'male' || targetGender === 'female' || targetGender === 'kids'
+      ? (targetGender as 'male' | 'female' | 'kids')
+      : undefined;
+
+  const { data, isLoading } = useGetDesignsQuery(
+    { limit: 50, sort: 'popular', ...(genderParam ? { gender: genderParam } : {}) },
+    { skip: !visible },
+  );
+
+  const designs = useMemo(() => {
+    const all = data?.designs ?? [];
+    if (!search.trim()) return all;
+    const q = search.toLowerCase();
+    return all.filter(
+      (d) => d.title.toLowerCase().includes(q) || d.category.toLowerCase().includes(q),
+    );
+  }, [data, search]);
+
+  const styles = StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: r['2xl'],
+      borderTopRightRadius: r['2xl'],
+      maxHeight: '80%',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: sp.base,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    title: { ...typo.scale.body, fontFamily: typo.fonts.sansBold, color: colors.textHigh },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.sm,
+      margin: sp.base,
+      backgroundColor: colors.inputBg,
+      borderRadius: r.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: sp.md,
+      height: 40,
+    },
+    searchInput: {
+      flex: 1,
+      ...typo.scale.body,
+      fontFamily: typo.fonts.sans,
+      color: colors.textHigh,
+      padding: 0,
+    },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.md,
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    thumb: { width: 56, height: 56, borderRadius: r.sm, backgroundColor: colors.panel },
+    itemTitle: { ...typo.scale.bodySmall, fontFamily: typo.fonts.sansBold, color: colors.textHigh },
+    itemMeta: { ...typo.scale.caption, fontFamily: typo.fonts.sans, color: colors.textMid, marginTop: 2 },
+    empty: { paddingVertical: sp['3xl'], alignItems: 'center' },
+    emptyText: { ...typo.scale.body, fontFamily: typo.fonts.sans, color: colors.textMid },
+  });
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Select Design</Text>
+            <Pressable onPress={onClose} hitSlop={sp.sm}>
+              <IconSymbol name="xmark" size={18} color={colors.textMid} />
+            </Pressable>
+          </View>
+
+          <View style={styles.searchBar}>
+            <IconSymbol name="magnifyingglass" size={14} color={colors.textLow} />
+            <TextInput
+              style={styles.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search designs…"
+              placeholderTextColor={colors.textLow}
+            />
+          </View>
+
+          {isLoading ? (
+            <View style={styles.empty}>
+              <ActivityIndicator color={colors.accent} />
+            </View>
+          ) : designs.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>No designs found.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={designs}
+              keyExtractor={(d) => d._id}
+              renderItem={({ item }) => (
+                <Pressable style={styles.item} onPress={() => { onSelect(item); onClose(); }}>
+                  {item.imageUrl !== null ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.thumb} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.thumb} />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.itemMeta}>{item.category} · {item.gender}</Text>
+                  </View>
+                  <IconSymbol name="chevron.right" size={14} color={colors.textLow} />
+                </Pressable>
+              )}
+            />
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+});
+
+// ── Tailor Picker Modal ───────────────────────────────────────────────────────
+
+interface TailorPickerModalProps {
+  visible: boolean;
+  designCategory: string;
+  onSelect: (tailor: Tailor, price: number | null) => void;
+  onClose: () => void;
+}
+
+const TailorPickerModal = memo(function TailorPickerModal({
+  visible,
+  designCategory,
+  onSelect,
+  onClose,
+}: TailorPickerModalProps): React.JSX.Element {
+  const { colors, sp, r, typo } = useTheme();
+
+  const { data, isLoading } = useGetTailorsQuery(
+    { limit: 50, sort: 'rating', available: true },
+    { skip: !visible },
+  );
+
+  // Show tailors that specialise in the design's category first; others below
+  const { specialists, others } = useMemo(() => {
+    const all = data?.tailors ?? [];
+    const s: Tailor[] = [];
+    const o: Tailor[] = [];
+    for (const t of all) {
+      const hasSpec = t.specialisations.some(
+        (sp) => sp.toLowerCase() === designCategory.toLowerCase(),
+      );
+      const hasPricing = t.categoryPricing?.some(
+        (cp) => cp.garmentCategorySlug.toLowerCase() === designCategory.toLowerCase(),
+      );
+      if (hasSpec || hasPricing) {
+        s.push(t);
+      } else {
+        o.push(t);
+      }
+    }
+    return { specialists: s, others: o };
+  }, [data, designCategory]);
+
+  const sections = useMemo(() => [
+    ...(specialists.length > 0 ? [{ type: 'header' as const, label: 'SPECIALISTS' }, ...specialists.map((t) => ({ type: 'tailor' as const, tailor: t }))] : []),
+    ...(others.length > 0 ? [{ type: 'header' as const, label: 'ALL TAILORS' }, ...others.map((t) => ({ type: 'tailor' as const, tailor: t }))] : []),
+  ], [specialists, others]);
+
+  const styles = StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: r['2xl'],
+      borderTopRightRadius: r['2xl'],
+      maxHeight: '80%',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: sp.base,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: { ...typo.scale.body, fontFamily: typo.fonts.sansBold, color: colors.textHigh },
+    sectionHeader: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textMid,
+      backgroundColor: colors.panel,
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.xs,
+    },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    itemName: { ...typo.scale.bodySmall, fontFamily: typo.fonts.sansBold, color: colors.textHigh },
+    itemMeta: { ...typo.scale.caption, fontFamily: typo.fonts.sans, color: colors.textMid, marginTop: 2 },
+    itemPrice: { ...typo.scale.bodySmall, fontFamily: typo.fonts.sansBold, color: colors.accent },
+    tierBadge: {
+      paddingHorizontal: sp.xs,
+      paddingVertical: 2,
+      borderRadius: r.sharp,
+      backgroundColor: colors.accentSubtle,
+      alignSelf: 'flex-start',
+      marginTop: sp.xs,
+    },
+    tierText: { ...typo.scale.label, fontFamily: typo.fonts.sansMed, color: colors.accent },
+    empty: { paddingVertical: sp['3xl'], alignItems: 'center' },
+    emptyText: { ...typo.scale.body, fontFamily: typo.fonts.sans, color: colors.textMid },
+  });
+
+  type SectionRow =
+    | { type: 'header'; label: string }
+    | { type: 'tailor'; tailor: Tailor };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Select Tailor</Text>
+            <Pressable onPress={onClose} hitSlop={sp.sm}>
+              <IconSymbol name="xmark" size={18} color={colors.textMid} />
+            </Pressable>
+          </View>
+
+          {isLoading ? (
+            <View style={styles.empty}>
+              <ActivityIndicator color={colors.accent} />
+            </View>
+          ) : sections.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>No tailors available.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={sections as SectionRow[]}
+              keyExtractor={(row, i) =>
+                row.type === 'header' ? `hdr-${i}` : row.tailor._id
+              }
+              renderItem={({ item: row }) => {
+                if (row.type === 'header') {
+                  return <Text style={styles.sectionHeader}>{row.label}</Text>;
+                }
+                const { tailor } = row;
+                const price = getTailorPriceForCategory(tailor, designCategory);
+                const name = getTailorDisplayName(tailor);
+                return (
+                  <Pressable
+                    style={styles.item}
+                    onPress={() => { onSelect(tailor, price); onClose(); }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemName}>{name}</Text>
+                      <View style={styles.tierBadge}>
+                        <Text style={styles.tierText}>{tailor.tier.toUpperCase()}</Text>
+                      </View>
+                      <Text style={styles.itemMeta}>
+                        ★ {tailor.rating.toFixed(1)} · {tailor.completedOrders} orders
+                      </Text>
+                    </View>
+                    {price !== null ? (
+                      <Text style={styles.itemPrice}>PKR {price.toLocaleString()}</Text>
+                    ) : (
+                      <IconSymbol name="chevron.right" size={14} color={colors.textLow} />
+                    )}
+                  </Pressable>
+                );
+              }}
+            />
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+});
+
+// ── Per-item config card ──────────────────────────────────────────────────────
 
 interface Step2Props {
   cartItems: CartItem[];
@@ -460,16 +796,20 @@ interface Step2Props {
 
 interface ItemConfigCardProps {
   item: CartItem;
+  itemIndex: number;
   config: ItemConfig;
   onUpdate: (productId: string, config: ItemConfig) => void;
 }
 
 const ItemConfigCard = memo(function ItemConfigCard({
   item,
+  itemIndex,
   config,
   onUpdate,
 }: ItemConfigCardProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
+  const [designOpen, setDesignOpen] = useState(false);
+  const [tailorOpen, setTailorOpen] = useState(false);
 
   const styles = StyleSheet.create({
     card: {
@@ -479,100 +819,220 @@ const ItemConfigCard = memo(function ItemConfigCard({
       marginBottom: sp.md,
       ...elev.low,
     },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: sp.md,
+    },
+    suitLabel: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textMid,
+    },
     title: {
       ...typo.scale.bodySmall,
       fontFamily: typo.fonts.sansBold,
       color: colors.textHigh,
-      marginBottom: sp.md,
+      flex: 1,
+      marginRight: sp.sm,
     },
-    fieldGap: {
+    pickBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.xs,
+      backgroundColor: colors.accentSubtle,
+      borderRadius: r.sm,
+      paddingVertical: sp.sm,
+      paddingHorizontal: sp.md,
+    },
+    pickBtnText: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.accent,
+    },
+    selectedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.panel,
+      borderRadius: r.sm,
+      padding: sp.sm,
+    },
+    selectedName: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.textHigh,
+      flex: 1,
+    },
+    selectedMeta: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textMid,
+      marginTop: 2,
+    },
+    sectionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: sp.sm,
+    },
+    sectionLabel: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansMed,
+      color: colors.textMid,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: sp.sm,
+    },
+    disabledHint: {
+      ...typo.scale.caption,
+      fontFamily: typo.fonts.sans,
+      color: colors.textLow,
+      fontStyle: 'italic',
     },
   });
 
-  const handleDesignIdChange = useCallback(
-    (text: string) => {
-      onUpdate(item.productId, { ...config, designId: text });
-    },
-    [item.productId, config, onUpdate],
-  );
-
-  const handleDesignTitleChange = useCallback(
-    (text: string) => {
-      onUpdate(item.productId, { ...config, designTitle: text });
-    },
-    [item.productId, config, onUpdate],
-  );
-
-  const handleTailorIdChange = useCallback(
-    (text: string) => {
-      onUpdate(item.productId, { ...config, tailorId: text });
-    },
-    [item.productId, config, onUpdate],
-  );
-
-  const handleTailorNameChange = useCallback(
-    (text: string) => {
-      onUpdate(item.productId, { ...config, tailorName: text });
-    },
-    [item.productId, config, onUpdate],
-  );
-
-  const handleFeeChange = useCallback(
-    (text: string) => {
-      const parsed = parseFloat(text);
+  const handleDesignSelect = useCallback(
+    (design: Design) => {
       onUpdate(item.productId, {
         ...config,
-        stitchingFee: isNaN(parsed) ? undefined : parsed,
+        designId: design._id,
+        designTitle: design.title,
+        designCategory: design.category,
+        // Reset tailor when design changes
+        tailorId: undefined,
+        tailorName: undefined,
+        stitchingFee: undefined,
       });
     },
     [item.productId, config, onUpdate],
   );
 
+  const handleTailorSelect = useCallback(
+    (tailor: Tailor, price: number | null) => {
+      onUpdate(item.productId, {
+        ...config,
+        tailorId: tailor._id,
+        tailorName: getTailorDisplayName(tailor),
+        stitchingFee: price ?? undefined,
+      });
+    },
+    [item.productId, config, onUpdate],
+  );
+
+  const handleClearDesign = useCallback(() => {
+    onUpdate(item.productId, {
+      ...config,
+      designId: undefined,
+      designTitle: undefined,
+      designCategory: undefined,
+      tailorId: undefined,
+      tailorName: undefined,
+      stitchingFee: undefined,
+    });
+  }, [item.productId, config, onUpdate]);
+
+  const handleClearTailor = useCallback(() => {
+    onUpdate(item.productId, {
+      ...config,
+      tailorId: undefined,
+      tailorName: undefined,
+      stitchingFee: undefined,
+    });
+  }, [item.productId, config, onUpdate]);
+
+  const hasDesign = config.designId !== undefined && config.designId.length > 0;
+  const hasTailor = config.tailorId !== undefined && config.tailorId.length > 0;
+
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{item.title}</Text>
-      <View style={styles.fieldGap}>
-        <Input
-          label="Design ID (optional)"
-          value={config.designId ?? ''}
-          onChangeText={handleDesignIdChange}
-          placeholder="e.g. design_abc123"
-          autoCapitalize="none"
-        />
+      <View style={styles.cardHeader}>
+        <Text style={styles.suitLabel}>SUIT {itemIndex + 1}</Text>
       </View>
-      <View style={styles.fieldGap}>
-        <Input
-          label="Design Title (optional)"
-          value={config.designTitle ?? ''}
-          onChangeText={handleDesignTitleChange}
-          placeholder="e.g. Floral Embroidery"
-        />
+      <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+
+      <View style={styles.divider} />
+
+      {/* Design section */}
+      <View style={[styles.sectionRow, { marginTop: sp.xs }]}>
+        <Text style={styles.sectionLabel}>DESIGN</Text>
+        {hasDesign ? (
+          <Pressable onPress={handleClearDesign} hitSlop={sp.xs}>
+            <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.error }]}>
+              Clear
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
-      <View style={styles.fieldGap}>
-        <Input
-          label="Tailor ID *"
-          value={config.tailorId ?? ''}
-          onChangeText={handleTailorIdChange}
-          placeholder="e.g. tailor_xyz789"
-          autoCapitalize="none"
-        />
-      </View>
-      <View style={styles.fieldGap}>
-        <Input
-          label="Tailor Name (optional)"
-          value={config.tailorName ?? ''}
-          onChangeText={handleTailorNameChange}
-          placeholder="e.g. Ustad Rashid"
-        />
-      </View>
-      <Input
-        label="Stitching Fee (PKR)"
-        value={config.stitchingFee !== undefined ? String(config.stitchingFee) : ''}
-        onChangeText={handleFeeChange}
-        placeholder="e.g. 1500"
-        keyboardType="numeric"
+
+      {hasDesign ? (
+        <Pressable style={styles.selectedRow} onPress={() => setDesignOpen(true)}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.selectedName} numberOfLines={1}>{config.designTitle}</Text>
+            {config.designCategory !== undefined && (
+              <Text style={styles.selectedMeta}>{config.designCategory}</Text>
+            )}
+          </View>
+          <IconSymbol name="pencil" size={14} color={colors.accent} />
+        </Pressable>
+      ) : (
+        <Pressable style={styles.pickBtn} onPress={() => setDesignOpen(true)}>
+          <IconSymbol name="paintbrush" size={14} color={colors.accent} />
+          <Text style={styles.pickBtnText}>Pick a Design</Text>
+        </Pressable>
+      )}
+
+      <DesignPickerModal
+        visible={designOpen}
+        targetGender={item.targetGender}
+        onSelect={handleDesignSelect}
+        onClose={() => setDesignOpen(false)}
       />
+
+      <View style={styles.divider} />
+
+      {/* Tailor section */}
+      <View style={[styles.sectionRow, { marginTop: sp.xs }]}>
+        <Text style={styles.sectionLabel}>TAILOR</Text>
+        {hasTailor ? (
+          <Pressable onPress={handleClearTailor} hitSlop={sp.xs}>
+            <Text style={[typo.scale.caption, { fontFamily: typo.fonts.sans, color: colors.error }]}>
+              Clear
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {!hasDesign ? (
+        <Text style={styles.disabledHint}>Select a design first to see tailors.</Text>
+      ) : hasTailor ? (
+        <Pressable style={styles.selectedRow} onPress={() => setTailorOpen(true)}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.selectedName} numberOfLines={1}>{config.tailorName}</Text>
+            {config.stitchingFee !== undefined && (
+              <Text style={styles.selectedMeta}>Stitching: PKR {config.stitchingFee.toLocaleString()}</Text>
+            )}
+          </View>
+          <IconSymbol name="pencil" size={14} color={colors.accent} />
+        </Pressable>
+      ) : (
+        <Pressable style={styles.pickBtn} onPress={() => setTailorOpen(true)}>
+          <IconSymbol name="scissors" size={14} color={colors.accent} />
+          <Text style={styles.pickBtnText}>Pick a Tailor</Text>
+        </Pressable>
+      )}
+
+      {hasDesign && (
+        <TailorPickerModal
+          visible={tailorOpen}
+          designCategory={config.designCategory ?? ''}
+          onSelect={handleTailorSelect}
+          onClose={() => setTailorOpen(false)}
+        />
+      )}
     </View>
   );
 });
@@ -582,13 +1042,13 @@ const Step2DesignTailor = memo(function Step2DesignTailor({
   itemConfigs,
   dispatch,
 }: Step2Props): React.JSX.Element {
-  const { colors, sp, r, typo, elev } = useTheme();
+  const { colors, sp, r, typo } = useTheme();
 
   const styles = StyleSheet.create({
     container: {
       padding: sp.base,
     },
-    hint: {
+    intro: {
       ...typo.scale.caption,
       fontFamily: typo.fonts.sans,
       color: colors.textMid,
@@ -626,25 +1086,32 @@ const Step2DesignTailor = memo(function Step2DesignTailor({
     const firstConfig = itemConfigs[firstItem.productId] ?? {};
     cartItems.forEach((item, idx) => {
       if (idx === 0) return;
-      dispatch({ type: 'SET_ITEM_CONFIG', productId: item.productId, config: { ...firstConfig } });
+      dispatch({
+        type: 'SET_ITEM_CONFIG',
+        productId: item.productId,
+        config: { ...firstConfig },
+      });
     });
   }, [cartItems, firstItem, itemConfigs, dispatch]);
 
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} scrollEnabled={false}>
-      <Text style={styles.hint}>
-        Each item needs a tailor assigned. Design is optional for now.
+      <Text style={styles.intro}>
+        For each suit, pick a design then choose a tailor. Tailors are filtered by the design's garment category.
       </Text>
+
       {cartItems.length > 1 && (
         <Pressable style={styles.copyBtn} onPress={handleCopyFromFirst}>
           <IconSymbol name="doc.on.doc" size={14} color={colors.accent} />
-          <Text style={styles.copyBtnText}>Copy from first item</Text>
+          <Text style={styles.copyBtnText}>Copy Suit 1 to all</Text>
         </Pressable>
       )}
-      {cartItems.map((item) => (
+
+      {cartItems.map((item, idx) => (
         <ItemConfigCard
           key={item.productId}
           item={item}
+          itemIndex={idx}
           config={itemConfigs[item.productId] ?? {}}
           onUpdate={handleUpdate}
         />
@@ -1064,7 +1531,7 @@ interface Step5Props {
   cartItems: CartItem[];
   wizardState: WizardState;
   dispatch: React.Dispatch<WizardAction>;
-  onSuccess: () => void;
+  placeError: unknown;
 }
 
 const DELIVERY_FEE = 200;
@@ -1082,10 +1549,9 @@ const Step5Review = memo(function Step5Review({
   cartItems,
   wizardState,
   dispatch,
-  onSuccess,
+  placeError,
 }: Step5Props): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const [placeOrder, { isLoading: isPlacing, error: placeError }] = usePlaceOrderMutation();
 
   const styles = StyleSheet.create({
     container: {
@@ -1226,47 +1692,6 @@ const Step5Review = memo(function Step5Review({
     [dispatch],
   );
 
-  const handlePlaceOrder = useCallback(async () => {
-    if (wizardState.deliveryAddress === null) return;
-
-    const items = cartItems.map((item) => {
-      const config = wizardState.itemConfigs[item.productId];
-      return {
-        productId: item.productId,
-        quantity: item.quantity,
-        ...(config?.designId ? { designId: config.designId } : {}),
-        ...(config?.tailorId ? { tailorId: config.tailorId } : {}),
-        ...(wizardState.measurementId ? { measurementId: wizardState.measurementId } : {}),
-        ...(config?.stitchingFee !== undefined ? { stitchingFee: config.stitchingFee } : {}),
-      };
-    });
-
-    const payload = {
-      items,
-      deliveryAddress: {
-        line1: wizardState.deliveryAddress.line1,
-        city: wizardState.deliveryAddress.city,
-        ...(wizardState.deliveryAddress.area.length > 0
-          ? { area: wizardState.deliveryAddress.area }
-          : {}),
-        phone: wizardState.deliveryAddress.phone,
-      },
-      paymentMethod: wizardState.paymentMethod,
-      ...(wizardState.isGift ? { isGift: true } : {}),
-      ...(wizardState.isGift && wizardState.giftMessage.trim()
-        ? { giftMessage: wizardState.giftMessage.trim() }
-        : {}),
-      ...(wizardState.isRushOrder ? { isRushOrder: true } : {}),
-    };
-
-    try {
-      await placeOrder(payload).unwrap();
-      onSuccess();
-    } catch {
-      // Error surfaced via placeError below
-    }
-  }, [cartItems, wizardState, placeOrder, onSuccess]);
-
   const errorMessage = (() => {
     if (placeError === undefined || placeError === null) return undefined;
     if (
@@ -1292,7 +1717,7 @@ const Step5Review = memo(function Step5Review({
             {config?.designTitle !== undefined && config.designTitle.length > 0 && (
               <Text style={styles.itemMeta}>Design: {config.designTitle}</Text>
             )}
-            {config?.tailorName !== undefined && config.tailorName.length > 0 && (
+            {config?.tailorName !== undefined && config.tailorName.trim().length > 0 && (
               <Text style={styles.itemMeta}>Tailor: {config.tailorName}</Text>
             )}
             {config?.stitchingFee !== undefined && (
@@ -1417,7 +1842,7 @@ export default function NewOrderScreen(): React.JSX.Element {
   const cartItems = useAppSelector(selectCartItems);
 
   const [wizardState, dispatch] = useReducer(wizardReducer, initialWizardState);
-  const [placeOrder, { isLoading: isPlacing }] = usePlaceOrderMutation();
+  const [placeOrder, { isLoading: isPlacing, error: placeError }] = usePlaceOrderMutation();
 
   // ── Validation per step ──────────────────────────────────────────────────────
 
@@ -1425,13 +1850,14 @@ export default function NewOrderScreen(): React.JSX.Element {
     switch (wizardState.step) {
       case 1:
         return cartItems.length > 0;
-      case 2: {
-        // All items need at least a tailorId
+      case 2:
         return cartItems.every((item) => {
-          const config = wizardState.itemConfigs[item.productId];
-          return (config?.tailorId ?? '').trim().length > 0;
+          const cfg = wizardState.itemConfigs[item.productId];
+          return (
+            cfg?.designId !== undefined && cfg.designId.length > 0 &&
+            cfg?.tailorId !== undefined && cfg.tailorId.length > 0
+          );
         });
-      }
       case 3:
         return wizardState.measurementId !== null;
       case 4:
@@ -1461,43 +1887,64 @@ export default function NewOrderScreen(): React.JSX.Element {
   }, [reduxDispatch, router]);
 
   const handlePlaceOrder = useCallback(async () => {
-    if (wizardState.deliveryAddress === null) return;
+    if (wizardState.deliveryAddress === null || wizardState.measurementId === null) return;
+    if (!canProceed()) return;
 
-    const items = cartItems.map((item) => {
-      const config = wizardState.itemConfigs[item.productId];
-      return {
+    // Expand each cart item by quantity → one row per suit
+    interface ExpandedItem {
+      productId: string;
+      tailorId: string;
+      payload: OrderItemPayload;
+    }
+    const expanded: ExpandedItem[] = cartItems.flatMap((item) => {
+      const cfg = wizardState.itemConfigs[item.productId];
+      const tailorId = cfg?.tailorId ?? '';
+      const row: OrderItemPayload = {
         productId: item.productId,
-        quantity: item.quantity,
-        ...(config?.designId ? { designId: config.designId } : {}),
-        ...(config?.tailorId ? { tailorId: config.tailorId } : {}),
-        ...(wizardState.measurementId ? { measurementId: wizardState.measurementId } : {}),
-        ...(config?.stitchingFee !== undefined ? { stitchingFee: config.stitchingFee } : {}),
+        measurementId: wizardState.measurementId as string,
+        ...(cfg?.designId ? { designId: cfg.designId } : {}),
+        ...(wizardState.isRushOrder ? { isRushOrder: true as const } : {}),
       };
+      return Array.from({ length: item.quantity }, () => ({ productId: item.productId, tailorId, payload: row }));
     });
 
-    const payload = {
-      items,
-      deliveryAddress: {
-        line1: wizardState.deliveryAddress.line1,
-        city: wizardState.deliveryAddress.city,
-        ...(wizardState.deliveryAddress.area.length > 0
-          ? { area: wizardState.deliveryAddress.area }
-          : {}),
-        phone: wizardState.deliveryAddress.phone,
-      },
-      paymentMethod: wizardState.paymentMethod,
-      ...(wizardState.isGift ? { isGift: true } : {}),
-      ...(wizardState.isGift && wizardState.giftMessage.trim()
-        ? { giftMessage: wizardState.giftMessage.trim() }
-        : {}),
-      ...(wizardState.isRushOrder ? { isRushOrder: true } : {}),
+    // Group by tailorId — each group becomes one POST /orders request
+    const groups = new Map<string, OrderItemPayload[]>();
+    for (const e of expanded) {
+      const existing = groups.get(e.tailorId);
+      if (existing !== undefined) {
+        existing.push(e.payload);
+      } else {
+        groups.set(e.tailorId, [e.payload]);
+      }
+    }
+
+    const baseAddress = {
+      line1: wizardState.deliveryAddress.line1,
+      city: wizardState.deliveryAddress.city,
+      ...(wizardState.deliveryAddress.area.length > 0 ? { area: wizardState.deliveryAddress.area } : {}),
+      ...(wizardState.deliveryAddress.phone.length > 0 ? { phone: wizardState.deliveryAddress.phone } : {}),
     };
 
     try {
-      await placeOrder(payload).unwrap();
+      await Promise.all(
+        Array.from(groups.entries()).map(([tailorId, items]) => {
+          const payload: PlaceOrderPayload = {
+            tailorId,
+            items,
+            deliveryAddress: baseAddress,
+            paymentMethod: wizardState.paymentMethod,
+            ...(wizardState.isGift ? { isGift: true } : {}),
+            ...(wizardState.isGift && wizardState.giftMessage.trim()
+              ? { giftMessage: wizardState.giftMessage.trim() }
+              : {}),
+          };
+          return placeOrder(payload).unwrap();
+        }),
+      );
       handleSuccess();
     } catch {
-      // Error is surfaced in Step5Review's placeError
+      // Error surfaced via placeError passed to Step5Review
     }
   }, [cartItems, wizardState, placeOrder, handleSuccess]);
 
@@ -1549,7 +1996,7 @@ export default function NewOrderScreen(): React.JSX.Element {
       {!proceedEnabled && (
         <Text style={styles.validationHint}>
           {wizardState.step === 2
-            ? 'Assign a tailor to every item to continue.'
+            ? 'Select a design and tailor for every suit to continue.'
             : wizardState.step === 3
               ? 'Select or add a measurement to continue.'
               : wizardState.step === 4
@@ -1595,7 +2042,7 @@ export default function NewOrderScreen(): React.JSX.Element {
             cartItems={cartItems}
             wizardState={wizardState}
             dispatch={dispatch}
-            onSuccess={handleSuccess}
+            placeError={placeError}
           />
         )}
       </ScrollView>

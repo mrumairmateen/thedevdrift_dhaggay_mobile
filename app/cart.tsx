@@ -326,7 +326,7 @@ export default function CartPageScreen(): React.JSX.Element {
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>{formatPkr(total)}</Text>
             </View>
-            <Pressable style={styles.proceedBtn}>
+            <Pressable style={styles.proceedBtn} onPress={() => router.push('/orders/new' as never)}>
               <Text style={styles.proceedText}>PROCEED TO ORDER</Text>
             </Pressable>
           </View>

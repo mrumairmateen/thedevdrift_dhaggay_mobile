@@ -48,7 +48,7 @@ function mapActiveOrder(raw: RawActiveOrder): ActiveOrder {
   const firstImage = firstItem?.productId.images[0];
   return {
     _id: raw._id,
-    orderNumber: raw.orderId,
+    orderId: raw.orderId,
     productTitle: firstItem?.productId.title ?? '',
     productImage: firstImage?.url ?? null,
     status: raw.status,

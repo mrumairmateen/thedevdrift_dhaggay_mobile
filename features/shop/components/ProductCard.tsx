@@ -12,6 +12,12 @@ export interface ProductCardProps {
   product: ShopProduct;
   width: number;
   onPress?: (slug: string) => void;
+  /** Customer-only: called when tapping Add or the "+" stepper button */
+  onAddToCart?: (product: ShopProduct) => void;
+  /** Current quantity in cart (0 or absent = not in cart). Only relevant when onAddToCart is provided. */
+  inCartQty?: number;
+  /** Customer-only: called by the "−/+" stepper; qty=0 removes the item */
+  onChangeQty?: (productId: string, qty: number) => void;
 }
 
 function resolveImageUri(product: ShopProduct): string | null {
@@ -46,9 +52,13 @@ export const ProductCard = React.memo(function ProductCard({
   product,
   width,
   onPress,
+  onAddToCart,
+  inCartQty = 0,
+  onChangeQty,
 }: ProductCardProps): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
   const router = useRouter();
+  const isOutOfStock = product.status === 'out_of_stock' || (product.stock !== undefined && product.stock <= 0);
 
   const imageHeight = Math.round(width * 1.15);
   const imageUri = resolveImageUri(product);
@@ -155,6 +165,55 @@ export const ProductCard = React.memo(function ProductCard({
       ...typo.scale.caption,
       color: colors.warning,
     },
+    cartRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      marginTop: sp.sm,
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.xs,
+      backgroundColor: colors.accent,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.sm,
+      paddingVertical: sp.xs,
+    },
+    addBtnText: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.textOnAccent,
+    },
+    stepper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: sp.xs,
+      backgroundColor: colors.accentSubtle,
+      borderRadius: r.pill,
+      paddingHorizontal: sp.xs,
+      paddingVertical: sp.xs,
+    },
+    stepBtn: {
+      width: 22,
+      height: 22,
+      borderRadius: r.pill,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepQty: {
+      ...typo.scale.bodySmall,
+      fontFamily: typo.fonts.sansBold,
+      color: colors.accent,
+      minWidth: 18,
+      textAlign: 'center',
+    },
+    outOfStockText: {
+      ...typo.scale.label,
+      fontFamily: typo.fonts.sans,
+      color: colors.textLow,
+    },
   });
 
   const handlePress = useCallback(() => {
@@ -164,6 +223,18 @@ export const ProductCard = React.memo(function ProductCard({
       router.push(`/shop/${product.slug}` as Parameters<typeof router.push>[0]);
     }
   }, [onPress, product.slug, router]);
+
+  const handleAdd = useCallback(() => {
+    onAddToCart?.(product);
+  }, [onAddToCart, product]);
+
+  const handleIncrement = useCallback(() => {
+    onChangeQty?.(product._id, inCartQty + 1);
+  }, [onChangeQty, product._id, inCartQty]);
+
+  const handleDecrement = useCallback(() => {
+    onChangeQty?.(product._id, inCartQty - 1);
+  }, [onChangeQty, product._id, inCartQty]);
 
   return (
     <Pressable style={styles.card} onPress={handlePress}>
@@ -212,6 +283,28 @@ export const ProductCard = React.memo(function ProductCard({
           <Text style={styles.shopName} numberOfLines={1}>
             {shopName}
           </Text>
+        )}
+        {onAddToCart !== undefined && (
+          <View style={styles.cartRow}>
+            {isOutOfStock ? (
+              <Text style={styles.outOfStockText}>{'Out of stock'}</Text>
+            ) : inCartQty > 0 ? (
+              <View style={styles.stepper}>
+                <Pressable style={styles.stepBtn} onPress={handleDecrement} hitSlop={sp.xs}>
+                  <IconSymbol name="minus" size={12} color={colors.textOnAccent} />
+                </Pressable>
+                <Text style={styles.stepQty}>{inCartQty}</Text>
+                <Pressable style={styles.stepBtn} onPress={handleIncrement} hitSlop={sp.xs}>
+                  <IconSymbol name="plus" size={12} color={colors.textOnAccent} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable style={styles.addBtn} onPress={handleAdd} hitSlop={sp.xs}>
+                <IconSymbol name="plus" size={12} color={colors.textOnAccent} />
+                <Text style={styles.addBtnText}>{'Add'}</Text>
+              </Pressable>
+            )}
+          </View>
         )}
       </View>
     </Pressable>

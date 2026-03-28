@@ -185,7 +185,7 @@ export default function CartTabScreen(): React.JSX.Element {
   }, [dispatch]);
 
   const handleProceed = useCallback(() => {
-    router.push('/cart' as never);
+    router.push('/orders/new' as never);
   }, [router]);
 
   const renderItem = useCallback<ListRenderItem<CartItem>>(

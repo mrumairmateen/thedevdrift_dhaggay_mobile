@@ -1,10 +1,14 @@
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { CategoryPills } from '@features/shop/components/CategoryPills';
 import { ProductCard } from '@features/shop/components/ProductCard';
-import type { FabricCategory, SortOption } from '@features/shop/shop.types';
+import type { FabricCategory, ShopProduct, SortOption } from '@features/shop/shop.types';
 import { useTheme } from '@shared/theme';
 import { useGetProductsQuery } from '@services/shopApi';
-import { useLocalSearchParams } from 'expo-router';
+import { addToCart, removeFromCart, updateQuantity, selectCartCount, selectCartItems } from '@store/cartSlice';
+import type { CartItem } from '@store/cartSlice';
+import { useAppDispatch, useAppSelector } from '@store/index';
+import { openAuthSheet } from '@store/authSlice';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -57,7 +61,18 @@ function SkeletonCard({ width }: { width: number }) {
 export default function ShopScreen() {
   const { colors, sp, r, typo } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const dispatch = useAppDispatch();
   const { category: categoryParam } = useLocalSearchParams<{ category?: string }>();
+
+  const userRole = useAppSelector((s) => s.auth.user?.role);
+  const isLoggedIn = useAppSelector((s) => s.auth.user !== null);
+  const isCustomer = userRole === 'customer';
+  // Show cart controls to guests (not logged in) AND logged-in customers.
+  // Sellers, tailors, admins, delivery don't see cart controls.
+  const showCartControls = !isLoggedIn || isCustomer;
+  const cartCount = useAppSelector(selectCartCount);
+  const cartItems = useAppSelector(selectCartItems);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -110,13 +125,64 @@ export default function ShopScreen() {
     setPage(1);
   }, []);
 
+  const handleAddToCart = useCallback(
+    (product: ShopProduct) => {
+      if (!isLoggedIn) {
+        dispatch(openAuthSheet('login'));
+        return;
+      }
+      const imageUri = product.images?.[0]?.url ?? product.imageUrl ?? null;
+      const shopRef = typeof product.shopId === 'object' && product.shopId !== null ? product.shopId : null;
+      const item: CartItem = {
+        productId: product._id,
+        title: product.title,
+        category: product.category,
+        pricePerSuit: product.pricePerSuit ?? product.pricePerMetre ?? 0,
+        imageUrl: imageUri ?? null,
+        shopId: shopRef !== null ? (shopRef._id ?? '') : (typeof product.shopId === 'string' ? product.shopId : ''),
+        shopSlug: shopRef?.slug ?? '',
+        shopName: shopRef?.name ?? '',
+        quantity: 1,
+        stock: product.stock ?? 99,
+        targetGender: product.targetGender,
+        addedAt: new Date().toISOString(),
+      };
+      dispatch(addToCart(item));
+    },
+    [dispatch],
+  );
+
+  const handleChangeQty = useCallback(
+    (productId: string, qty: number) => {
+      if (qty <= 0) {
+        dispatch(removeFromCart(productId));
+      } else {
+        dispatch(updateQuantity({ productId, quantity: qty }));
+      }
+    },
+    [dispatch],
+  );
+
   const renderItem = useCallback(
-    ({ item, index }: { item: any; index: number }) => (
-      <View style={{ marginLeft: index % 2 === 1 ? CARD_GAP : 0 }}>
-        <ProductCard product={item} width={CARD_WIDTH} />
-      </View>
-    ),
-    [],
+    ({ item, index }: { item: ShopProduct; index: number }) => {
+      const inCartQty = cartItems.find((c) => c.productId === item._id)?.quantity ?? 0;
+      return (
+        <View style={{ marginLeft: index % 2 === 1 ? CARD_GAP : 0 }}>
+          <ProductCard
+            product={item}
+            width={CARD_WIDTH}
+            {...(showCartControls
+              ? {
+                  onAddToCart: handleAddToCart,
+                  inCartQty,
+                  onChangeQty: handleChangeQty,
+                }
+              : {})}
+          />
+        </View>
+      );
+    },
+    [cartItems, showCartControls, handleAddToCart, handleChangeQty],
   );
 
   const renderSkeleton = () => (
@@ -144,9 +210,26 @@ export default function ShopScreen() {
           },
         ]}
       >
-        <Text style={[typo.scale.title2, { fontFamily: typo.fonts.serifBold, color: colors.textHigh, marginBottom: sp.md }]}>
-          Shop
-        </Text>
+        <View style={styles.headerTitle}>
+          <Text style={[typo.scale.title2, { fontFamily: typo.fonts.serifBold, color: colors.textHigh }]}>
+            Shop
+          </Text>
+          {showCartControls && (
+            <Pressable
+              onPress={() => router.push('/(tabs)/cart' as never)}
+              style={[styles.cartBtn, { backgroundColor: colors.elevated, borderColor: colors.border }]}
+            >
+              <IconSymbol name="bag" size={20} color={colors.textHigh} />
+              {cartCount > 0 && (
+                <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+                  <Text style={[typo.scale.label, { fontFamily: typo.fonts.sansBold, color: colors.textOnAccent, lineHeight: 14 }]}>
+                    {cartCount > 99 ? '99+' : String(cartCount)}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          )}
+        </View>
 
         {/* Search bar */}
         <View
@@ -333,6 +416,31 @@ export default function ShopScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { borderBottomWidth: 1 },
+  headerTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  cartBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',

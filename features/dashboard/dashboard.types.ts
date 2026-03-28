@@ -113,7 +113,7 @@ export interface DashboardStats {
 
 export interface ActiveOrder {
   _id: string;
-  orderNumber: string;
+  orderId: string;
   productTitle: string;
   productImage: string | null;
   status: OrderStatus;
@@ -174,7 +174,7 @@ export interface MeasurementSnapshot {
   hips: number;
   shoulder: number;
   length: number;
-  sleeveLength: number;
+  sleeveLength?: number;
   customNotes?: string;
 }
 
@@ -194,7 +194,7 @@ export interface OrderItem {
   productId: OrderItemProduct;
   /** String on list responses; populated object on detail response */
   shopId: string | OrderItemShop;
-  designId: OrderItemDesign;
+  designId?: OrderItemDesign;
   measurementSnapshot: MeasurementSnapshot;
   designBrief: { referenceImages: string[] };
   pricing: OrderItemPricing;

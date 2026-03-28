@@ -6,31 +6,32 @@ import type { Order, OrderQuery, PaginatedOrders } from '@features/dashboard/das
 
 export interface OrderItemPayload {
   productId: string;
-  quantity: number;
+  measurementId: string;
   designId?: string;
-  tailorId?: string;
-  measurementId?: string;
-  stitchingFee?: number;
+  isRushOrder?: boolean;
+  designExtras?: Record<string, number>;
+  customNotes?: string;
 }
 
 export interface PlaceOrderPayload {
+  tailorId: string;
   items: OrderItemPayload[];
   deliveryAddress: {
     line1: string;
     city: string;
     area?: string;
-    phone: string;
+    phone?: string;
   };
-  paymentMethod: 'jazzcash' | 'easypaisa' | 'cod';
+  paymentMethod?: 'jazzcash' | 'easypaisa' | 'cod';
   isGift?: boolean;
   giftMessage?: string;
-  isRushOrder?: boolean;
   loyaltyPointsToRedeem?: number;
+  promoCode?: string;
 }
 
 export interface PlaceOrderResponse {
+  _id: string;
   orderId: string;
-  orderNumber: string;
 }
 
 // ─── API slice ────────────────────────────────────────────────────────────────
@@ -43,7 +44,12 @@ export const ordersApi = api.injectEndpoints({
         if (status && status !== 'all') params['status'] = status;
         return { url: '/orders', params };
       },
-      transformResponse: (res: ApiResponse<PaginatedOrders>) => res.data,
+      transformResponse: (res: ApiResponse<{ items: Order[]; total: number; page: number; pages: number }>) => ({
+        orders: res.data.items,
+        total: res.data.total,
+        page: res.data.page,
+        pages: res.data.pages,
+      }),
       providesTags: ['Order'],
     }),
 
