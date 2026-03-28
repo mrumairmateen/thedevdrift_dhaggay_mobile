@@ -11,8 +11,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import {
   useGetMyPromosQuery,
   useCreatePromoMutation,
@@ -28,6 +26,7 @@ import {
   Skeleton,
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── PromoCodeCard ────────────────────────────────────────────────────────────
 
@@ -219,7 +218,6 @@ const EMPTY_FORM: PromoForm = {
 
 export default function SellerPromotionsScreen(): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const insets = useSafeAreaInsets();
 
   const { data: promos, isLoading, isError, refetch } = useGetMyPromosQuery();
   const [createPromo, { isLoading: isCreating }] = useCreatePromoMutation();
@@ -339,22 +337,13 @@ export default function SellerPromotionsScreen(): React.JSX.Element {
 
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      backgroundColor: colors.navSolid,
-      paddingTop: insets.top + sp.sm,
-      paddingHorizontal: sp.base,
-      paddingBottom: sp.md,
+    actionBar: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
+      paddingHorizontal: sp.base,
+      paddingVertical: sp.sm,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
-      ...elev.high,
-    },
-    headerTitle: {
-      ...typo.scale.title3,
-      fontFamily: typo.fonts.serifBold,
-      color: colors.textHigh,
     },
     formCard: {
       backgroundColor: colors.elevated,
@@ -432,9 +421,8 @@ export default function SellerPromotionsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Promo Codes</Text>
+      <DashHeader title="Promo Codes" subtitle="Seller Dashboard" />
+      <View style={styles.actionBar}>
         <Button
           label={showForm ? 'Close' : 'Create Promo'}
           variant={showForm ? 'ghost' : 'primary'}

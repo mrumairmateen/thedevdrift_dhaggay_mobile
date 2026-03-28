@@ -29,7 +29,7 @@ import {
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { formatPkr } from '@shared/utils';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── Filter config ─────────────────────────────────────────────────────────────
 //
@@ -388,7 +388,7 @@ export default function SellerOrdersScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="Orders" showBack={false} />
+      <DashHeader title="Orders" subtitle="Seller Dashboard" />
 
       {/* Filter tabs */}
       <ScrollView

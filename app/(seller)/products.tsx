@@ -23,7 +23,7 @@ import {
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { formatPkr } from '@shared/utils';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -197,7 +197,7 @@ export default function SellerProductsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="My Products" showBack={false} />
+      <DashHeader title="My Products" subtitle="Seller Dashboard" />
 
       {isLoading ? (
         <ProductsSkeletonList />

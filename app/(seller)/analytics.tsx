@@ -16,7 +16,7 @@ import {
   Skeleton,
 } from '@shared/components/ui';
 import { formatPkr } from '@shared/utils';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,11 +25,6 @@ interface TopProduct {
   title: string;
   totalSold: number;
   revenue: number;
-}
-
-interface StatusEntry {
-  status: string;
-  count: number;
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -128,50 +123,6 @@ export const TopProductRow = React.memo(function TopProductRow({
   );
 });
 
-// ─── Status Row ───────────────────────────────────────────────────────────────
-
-export interface StatusEntryRowProps {
-  entry: StatusEntry;
-}
-
-export const StatusEntryRow = React.memo(function StatusEntryRow({
-  entry,
-}: StatusEntryRowProps): React.JSX.Element {
-  const { colors, sp, r, typo } = useTheme();
-
-  const label = entry.status
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-
-  const styles = StyleSheet.create({
-    row: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: sp.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    label: {
-      ...typo.scale.bodySmall,
-      fontFamily: typo.fonts.sans,
-      color: colors.textMid,
-    },
-    count: {
-      ...typo.scale.bodySmall,
-      fontFamily: typo.fonts.sansBold,
-      color: colors.textHigh,
-    },
-  });
-
-  return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.count}>{entry.count}</Text>
-    </View>
-  );
-});
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SellerAnalyticsScreen(): React.JSX.Element {
@@ -213,7 +164,7 @@ export default function SellerAnalyticsScreen(): React.JSX.Element {
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Analytics" showBack={false} />
+        <DashHeader title="Analytics" subtitle="Seller Dashboard" />
         <AnalyticsSkeleton />
       </View>
     );
@@ -222,7 +173,7 @@ export default function SellerAnalyticsScreen(): React.JSX.Element {
   if (isError || !data) {
     return (
       <View style={styles.screen}>
-        <DashboardHeader title="Analytics" showBack={false} />
+        <DashHeader title="Analytics" subtitle="Seller Dashboard" />
         <View style={{ padding: sp.base }}>
           <ErrorBanner
             message="Could not load analytics. Please try again."
@@ -233,15 +184,11 @@ export default function SellerAnalyticsScreen(): React.JSX.Element {
     );
   }
 
-  const totalRevenue = data.revenueByDay.reduce((sum, day) => sum + day.revenue, 0);
-
-  const statusEntries: StatusEntry[] = Object.entries(data.ordersByStatus).map(
-    ([status, count]) => ({ status, count }),
-  );
+  const totalRevenue = data.months.reduce((sum, m) => sum + m.amount, 0);
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="Analytics" showBack={false} />
+      <DashHeader title="Analytics" subtitle="Seller Dashboard" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Revenue summary */}
         <View style={styles.revenueCard}>
@@ -273,25 +220,6 @@ export default function SellerAnalyticsScreen(): React.JSX.Element {
               renderItem={renderTopProduct}
               scrollEnabled={false}
             />
-          )}
-        </View>
-
-        {/* Orders by Status */}
-        <View style={styles.section}>
-          <SectionHeader title="Orders by Status" />
-          {statusEntries.length === 0 ? (
-            <Text
-              style={[
-                typo.scale.bodySmall,
-                { fontFamily: typo.fonts.sans, color: colors.textMid },
-              ]}
-            >
-              No order data available yet.
-            </Text>
-          ) : (
-            statusEntries.map((entry) => (
-              <StatusEntryRow key={entry.status} entry={entry} />
-            ))
           )}
         </View>
       </ScrollView>

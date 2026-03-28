@@ -9,7 +9,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   useGetSellerDashboardQuery,
@@ -20,7 +19,6 @@ import type { SellerOrder, SellerProduct } from '@services/sellerApi';
 import { useAppSelector } from '@store/index';
 import { useTheme } from '@shared/theme';
 import {
-  Avatar,
   Badge,
   Button,
   EmptyState,
@@ -28,6 +26,7 @@ import {
   SectionHeader,
   Skeleton,
 } from '@shared/components/ui';
+import { DashHeader } from '@shared/components/DashHeader';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
 import { formatPkr } from '@shared/utils';
 
@@ -261,7 +260,6 @@ export const LowStockRow = React.memo(function LowStockRow({
 
 export default function SellerOverviewScreen(): React.JSX.Element {
   const { colors, sp, r, typo, elev } = useTheme();
-  const insets = useSafeAreaInsets();
   const authUser = useAppSelector((s) => s.auth.user);
 
   const { data, isLoading, isError, refetch } = useGetSellerDashboardQuery();
@@ -304,29 +302,6 @@ export default function SellerOverviewScreen(): React.JSX.Element {
 
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      backgroundColor: colors.navSolid,
-      paddingTop: insets.top + sp.sm,
-      paddingHorizontal: sp.base,
-      paddingBottom: sp.md,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      ...elev.high,
-    },
-    greeting: {
-      ...typo.scale.title3,
-      fontFamily: typo.fonts.serifBold,
-      color: colors.textHigh,
-    },
-    subtitle: {
-      ...typo.scale.caption,
-      fontFamily: typo.fonts.sans,
-      color: colors.textMid,
-      marginTop: 2,
-    },
     banner: {
       marginHorizontal: sp.base,
       marginTop: sp.md,
@@ -373,24 +348,10 @@ export default function SellerOverviewScreen(): React.JSX.Element {
     content: { paddingBottom: sp['4xl'] },
   });
 
-  const header = (
-    <View style={styles.header}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.greeting}>Hello, {firstName}</Text>
-        <Text style={styles.subtitle}>Seller Dashboard</Text>
-      </View>
-      <Avatar
-        uri={authUser?.avatarUrl ?? undefined}
-        name={authUser?.name}
-        size={40}
-      />
-    </View>
-  );
-
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        {header}
+        <DashHeader title={`Hello, ${firstName}`} subtitle="Seller Dashboard" />
         <SellerOverviewSkeleton />
       </View>
     );
@@ -399,7 +360,7 @@ export default function SellerOverviewScreen(): React.JSX.Element {
   if (isError || !data) {
     return (
       <View style={styles.screen}>
-        {header}
+        <DashHeader title={`Hello, ${firstName}`} subtitle="Seller Dashboard" />
         <View style={{ padding: sp.base, marginTop: sp.lg }}>
           <ErrorBanner
             message="Could not load your seller dashboard. Please try again."
@@ -410,7 +371,7 @@ export default function SellerOverviewScreen(): React.JSX.Element {
     );
   }
 
-  const { store, stats, pendingOrders, lowStockProducts } = data;
+  const { approval, stats, pendingOrders, lowStockProducts } = data;
 
   const statItems = [
     {
@@ -437,13 +398,13 @@ export default function SellerOverviewScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      {header}
+      <DashHeader title={`Hello, ${firstName}`} subtitle="Seller Dashboard" />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
         {/* Store status banners */}
-        {store.status === 'pending' && (
+        {approval.status === 'pending' && (
           <View
             style={[
               styles.banner,
@@ -459,7 +420,7 @@ export default function SellerOverviewScreen(): React.JSX.Element {
           </View>
         )}
 
-        {store.status === 'suspended' && (
+        {approval.status === 'suspended' && (
           <View
             style={[
               styles.banner,

@@ -69,9 +69,10 @@ export function DashboardTabBar({
         if (descriptor === undefined) return null;
         const { options } = descriptor;
 
-        // Expo Router sets href: null on hidden tabs via a custom option key.
-        const href = (options as Record<string, unknown>)['href'];
-        if (href === null) return null;
+        // Skip tabs with no icon — Expo Router converts `href={null}` to
+        // `tabBarItemStyle: { display: 'none' }` and strips `href` from options,
+        // so checking `options.href === null` never matches.
+        if (!options.tabBarIcon) return null;
 
         const isFocused = state.index === index;
 

@@ -8,8 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import {
   useGetSellerReviewsQuery,
   useReplyToReviewMutation,
@@ -24,6 +22,7 @@ import {
   Skeleton,
 } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── Star renderer ────────────────────────────────────────────────────────────
 
@@ -377,8 +376,7 @@ export const ReviewCard = React.memo(function ReviewCard({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SellerReviewsScreen(): React.JSX.Element {
-  const { colors, sp, r, typo, elev } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { colors, sp, r } = useTheme();
 
   const { data, isLoading, isError, refetch } = useGetSellerReviewsQuery({
     page: 1,
@@ -409,20 +407,6 @@ export default function SellerReviewsScreen(): React.JSX.Element {
 
   const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    header: {
-      backgroundColor: colors.navSolid,
-      paddingTop: insets.top + sp.sm,
-      paddingHorizontal: sp.base,
-      paddingBottom: sp.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      ...elev.high,
-    },
-    headerTitle: {
-      ...typo.scale.title3,
-      fontFamily: typo.fonts.serifBold,
-      color: colors.textHigh,
-    },
     skeletonWrap: {
       padding: sp.base,
       gap: sp.sm,
@@ -437,10 +421,7 @@ export default function SellerReviewsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Customer Reviews</Text>
-      </View>
+      <DashHeader title="Customer Reviews" subtitle="Seller Dashboard" />
 
       {isLoading ? (
         <View style={styles.skeletonWrap}>

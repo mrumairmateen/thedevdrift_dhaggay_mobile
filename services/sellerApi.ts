@@ -8,14 +8,12 @@ export interface SellerStats {
   pendingOrders: number;
   revenueThisMonth: number;
   storeRating: number;
-  totalSales: number;
 }
 
-export interface StoreStatus {
-  status: 'pending' | 'active' | 'suspended';
-  storeName: string;
-  storeSlug: string;
-  logoUrl: string | null;
+export interface SellerApproval {
+  status: 'active' | 'pending' | 'suspended';
+  rejectedReason: string | null;
+  rejectedAt: string | null;
 }
 
 /**
@@ -57,18 +55,17 @@ export interface SellerOrder {
 
 export interface SellerProduct {
   _id: string;
-  slug: string;
   title: string;
   category: string;
   pricePerSuit: number;
   stock: number;
   imageUrl: string | null;
   status: 'active' | 'inactive' | 'out_of_stock';
-  totalSold: number;
 }
 
 export interface SellerDashboard {
-  store: StoreStatus;
+  approval: SellerApproval;
+  shopId: string;
   stats: SellerStats;
   pendingOrders: SellerOrder[];
   lowStockProducts: SellerProduct[];
@@ -83,22 +80,15 @@ export interface SellerOrderQuery {
 
 export interface PaginatedSellerOrders {
   orders: SellerOrder[];
-  total: number;
-  page: number;
-  pages: number;
 }
 
 export interface PaginatedSellerProducts {
   products: SellerProduct[];
-  total: number;
-  page: number;
-  pages: number;
 }
 
 export interface SellerAnalytics {
-  revenueByDay: Array<{ date: string; revenue: number }>;
+  months: Array<{ label: string; amount: number }>;
   topProducts: Array<{ productId: string; title: string; totalSold: number; revenue: number }>;
-  ordersByStatus: Record<string, number>;
 }
 
 // ─── Promo Types ─────────────────────────────────────────────────────────────
@@ -147,13 +137,99 @@ export interface PaginatedSellerReviews {
   pages: number;
 }
 
+// ─── Raw API shapes ───────────────────────────────────────────────────────────
+
+interface RawOrderImage {
+  url: string;
+  publicId: string;
+  _id: string;
+}
+
+interface RawOrderItem {
+  _id: string;
+  productId: { _id: string; title: string; images: RawOrderImage[] };
+  designId: { _id: string; title: string };
+  pricing: { fabricPrice: number; stitchingFee: number; platformFee: number };
+}
+
+interface RawTailorId {
+  _id: string;
+  userId: { _id: string; name: string };
+}
+
+interface RawPendingOrder {
+  _id: string;
+  orderId: string;
+  customerId: { _id: string; name: string };
+  tailorId: RawTailorId | null;
+  items: RawOrderItem[];
+  status: SellerOrderApiStatus;
+  pricing: { deliveryFee: number; loyaltyDiscount: number; promoDiscount: number; total: number };
+  estimatedDelivery: string | null;
+  createdAt: string;
+}
+
+interface RawSellerProduct {
+  _id: string;
+  title: string;
+  category: string;
+  pricePerSuit: number;
+  stock: number;
+  images: Array<{ url: string; publicId: string; _id: string }>;
+  status: 'active' | 'inactive' | 'out_of_stock';
+}
+
+function mapRawProduct(raw: RawSellerProduct): SellerProduct {
+  return {
+    _id: raw._id,
+    title: raw.title,
+    category: raw.category,
+    pricePerSuit: raw.pricePerSuit,
+    stock: raw.stock,
+    imageUrl: raw.images[0]?.url ?? null,
+    status: raw.status,
+  };
+}
+
+interface RawSellerDashboard {
+  approval: SellerApproval;
+  shopId: string;
+  stats: SellerStats;
+  pendingOrders: RawPendingOrder[];
+  lowStock: RawSellerProduct[];
+}
+
+function mapRawOrder(raw: RawPendingOrder): SellerOrder {
+  const item = raw.items[0];
+  return {
+    _id: raw._id,
+    orderNumber: raw.orderId,
+    customerName: raw.customerId.name,
+    productTitle: item?.productId.title ?? '',
+    productImage: item?.productId.images[0]?.url ?? null,
+    quantity: raw.items.length,
+    fabricPrice: item?.pricing.fabricPrice ?? 0,
+    stitchingFee: item?.pricing.stitchingFee ?? 0,
+    totalAmount: raw.pricing.total,
+    status: raw.status,
+    placedAt: raw.createdAt,
+    tailorName: raw.tailorId?.userId.name ?? null,
+  };
+}
+
 // ─── API slice ────────────────────────────────────────────────────────────────
 
 export const sellerApi = api.injectEndpoints({
   endpoints: (build) => ({
     getSellerDashboard: build.query<SellerDashboard, void>({
       query: () => '/dashboard/seller',
-      transformResponse: (res: ApiResponse<SellerDashboard>) => res.data,
+      transformResponse: (res: ApiResponse<RawSellerDashboard>): SellerDashboard => ({
+        approval: res.data.approval,
+        shopId: res.data.shopId,
+        stats: res.data.stats,
+        pendingOrders: res.data.pendingOrders.map(mapRawOrder),
+        lowStockProducts: res.data.lowStock.map(mapRawProduct),
+      }),
       providesTags: ['SellerOrder', 'SellerProduct'],
     }),
 
@@ -166,7 +242,9 @@ export const sellerApi = api.injectEndpoints({
           limit,
         },
       }),
-      transformResponse: (res: ApiResponse<PaginatedSellerOrders>) => res.data,
+      transformResponse: (res: ApiResponse<{ orders: RawPendingOrder[] }>): PaginatedSellerOrders => ({
+        orders: res.data.orders.map(mapRawOrder),
+      }),
       providesTags: ['SellerOrder'],
     }),
 
@@ -230,7 +308,9 @@ export const sellerApi = api.injectEndpoints({
         url: '/shops/my/products',
         params: { page, limit },
       }),
-      transformResponse: (res: ApiResponse<PaginatedSellerProducts>) => res.data,
+      transformResponse: (res: ApiResponse<{ products: RawSellerProduct[] }>): PaginatedSellerProducts => ({
+        products: res.data.products.map(mapRawProduct),
+      }),
       providesTags: ['SellerProduct'],
     }),
 
@@ -253,7 +333,7 @@ export const sellerApi = api.injectEndpoints({
 
     getMyPromos: build.query<PromoCode[], void>({
       query: () => '/shops/my/promotions',
-      transformResponse: (res: ApiResponse<PromoCode[]>) => res.data,
+      transformResponse: (res: ApiResponse<{ promos: PromoCode[]; total: number }>) => res.data.promos,
       providesTags: ['SellerPromo'],
     }),
 

@@ -13,7 +13,7 @@ import { useSignOut } from '@shared/hooks/useSignOut';
 import { useTheme } from '@shared/theme';
 import { Avatar } from '@shared/components/ui';
 import { IconSymbol } from '@shared/components/ui/icon-symbol';
-import { DashboardHeader } from '@features/dashboard/components/shared/DashboardHeader';
+import { DashHeader } from '@shared/components/DashHeader';
 
 // ─── Section Label ─────────────────────────────────────────────────────────────
 
@@ -227,7 +227,7 @@ export default function SellerSettingsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.screen}>
-      <DashboardHeader title="Store Settings" showBack={false} onSignOut={handleSignOut} />
+      <DashHeader title="Store Settings" subtitle="Seller Dashboard" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
